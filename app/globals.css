@@ -1,26 +1,93 @@
+/*
+ * 알꾼이 디자인 토큰 (Tailwind CSS v4 기준)
+ * 위치: app/globals.css
+ *
+ * @theme 안의 변수는 그대로 유틸리티 클래스가 돼요.
+ *   --color-brand-700   → bg-brand-700, text-brand-700, border-brand-700
+ *   --radius-card       → rounded-card
+ *   --shadow-card       → shadow-card
+ * 숫자 정렬은 Tailwind 기본 유틸리티 `tabular-nums`를 쓰면 돼요.
+ */
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* ── 메인(하늘색) ───────────────────────────── */
+  --color-brand-50: #EAF6FD;   /* 히어로·사이드 안내 배경, 활성 메뉴 배경 */
+  --color-brand-100: #E1F1FB;  /* 아이콘 타일, 공지 태그 배경 */
+  --color-brand-200: #CFE8F7;  /* 칩 테두리 */
+  --color-brand-500: #2E96D3;  /* 막대 그래프, 검색창 테두리, 보조 버튼 테두리 (그래픽 전용) */
+  --color-brand-700: #0B6FA4;  /* 주 버튼, 링크, 강조 숫자 (흰 배경 대비 5.5:1) */
+  --color-brand-800: #08557E;  /* hover, 공지 태그 글자 */
+
+  /* ── 글자·선·면 ─────────────────────────────── */
+  --color-ink: #1A2733;        /* 본문 */
+  --color-ink-soft: #3E4F5C;   /* 소제목, 메뉴 */
+  --color-ink-muted: #566672;  /* 보조 설명 (흰 배경 대비 5.9:1) */
+  --color-line: #E3ECF2;       /* 카드 테두리 */
+  --color-line-soft: #EEF3F6;  /* 표·목록 구분선 */
+  --color-track: #EDF4F8;      /* 막대 그래프 바탕 */
+  --color-surface: #F3F9FD;    /* 연한 섹션 배경 */
+  --color-surface-gray: #F5F8FA; /* 푸터 */
+
+  /* ── 상태: 정상(민트) ───────────────────────── */
+  --color-ok-bg: #E3F6EE;
+  --color-ok-fg: #0B6E5A;
+
+  /* ── 상태: 주의·정보 변경(노랑) ─────────────── */
+  --color-warn-bg: #FFF4D1;
+  --color-warn-surface: #FFF8E3; /* 섭취 시 주의사항 박스 */
+  --color-warn-fg: #7A5200;
+
+  /* ── 상태: 회수(코랄 레드) ──────────────────── */
+  --color-recall-bg: #FFEFEB;
+  --color-recall-border: #FFD3CA;
+  --color-recall-fg: #B23A2A;    /* 연한 코랄 배경 위 글자 (5.2:1) */
+  --color-recall-icon: #C73E31;
+  --color-recall-fill: #F26B5B;  /* 채워진 하트 등 그래픽 전용 */
+
+  /* ── 중립 배지(표시 기준량당, 사유 태그) ─────── */
+  --color-neutral-bg: #EEF1F3;
+  --color-neutral-fg: #4B5963;
+
+  /* ── 보조 포인트 ────────────────────────────── */
+  --color-lime-bg: #E9F7D6;    /* 내 서랍 아이콘 타일, 프로필 */
+  --color-lime-fg: #4C7A12;
+
+  /* ── 여러 성분 비교 A/B/C 계열색 ────────────── */
+  --color-series-a: #0B6FA4;  --color-series-a-bar: #2E96D3;
+  --color-series-b: #A85A08;  --color-series-b-bar: #E08A1E;
+  --color-series-c: #5D4FB0;  --color-series-c-bar: #7A6CD0;
+
+  /* ── 글꼴 ───────────────────────────────────── */
+  --font-sans: var(--font-pretendard, "Pretendard"), "Noto Sans KR", system-ui, sans-serif;
+
+  /* ── 모서리 ─────────────────────────────────── */
+  --radius-tile: 16px;   /* 아이콘 타일, 작은 정보 박스 */
+  --radius-btn: 18px;    /* 큰 사각 버튼 */
+  --radius-card: 20px;   /* 기본 카드 */
+  --radius-panel: 24px;  /* 섹션 패널 */
+  --radius-hero: 28px;   /* 히어로, 빈 상태 */
+  /* 칩·배지·검색창은 rounded-full */
+
+  /* ── 그림자 ─────────────────────────────────── */
+  --shadow-card: 0 4px 14px rgba(26, 39, 51, 0.05);
+  --shadow-search: 0 10px 28px rgba(11, 111, 164, 0.14);
+  --shadow-fab: 0 10px 24px rgba(11, 111, 164, 0.35);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    background: #ffffff;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  a {
+    color: var(--color-brand-700);
+  }
+  a:hover {
+    color: var(--color-brand-800);
+  }
 }
