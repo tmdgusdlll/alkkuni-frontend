@@ -21,7 +21,8 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 - [x] 레포 기본 설정: `/api` rewrites, `CLAUDE.md`, 디자인 문서·색 토큰 (PR #1)
 - [ ] **검색** `/search` (`GET /api/products`)
-  - Pretendard 글꼴, 공통 `api()` 함수, 응답 타입, 레이아웃(헤더·푸터), 배지·수치 공통 컴포넌트
+  - [x] Pretendard 글꼴, 공통 `api()` 함수, 응답 타입, 헤더·푸터, `BasisBadge`·`ReviewBadge`, 검색 결과·정렬·페이지, 에러 화면, 메인 검색 히어로
+  - [ ] 상한 2배 초과 값 "검수 대기": 검색 응답에 판정 필드가 없다(아래 "다음 할 일")
 - [ ] 제품 상세 `/products/[id]` (`GET /api/products/{id}`)
 - [ ] 성분별 제품 목록 `/explore` (`GET /api/products/explore`, `GET /api/ingredients`)
 - [ ] 제품 비교 `/compare?ids=` (`GET /api/products/compare`)
@@ -31,16 +32,11 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ## 다음 할 일
 
-### 검색 화면 (`feat/search`)
+### 검색 화면: 상한 초과 "검수 대기"
 
-- 정할 것
-  - Pretendard 설치 방식(`pretendard` 패키지 + `next/font/local`, `docs/design/components.md` 1번)
-  - 공통 `api()`: 서버에서는 `API_URL`을 붙이고, 응답 `ApiResponse`의 `data`를 꺼내며, 에러 응답(`INVALID_INPUT` 등)을 화면에 보여줄 수 있는 형태로 돌려준다
-  - 검색어가 성분이 아닐 때(`matchedIngredient` null) 함량 칸과 "함량순" 정렬을 숨김
-- 검증
-  - 백엔드를 띄우고 `/search?q=비타민C`가 결과를 보여줌. `sort=amount`, `q=종근당`, `q=C`(에러 문구) 각각 확인
-  - 배지(`basisCheck`), 검수 대기(`parseStatus`), 1일 함량 없음 표시를 실제 데이터로 확인(Playwright 스크린샷)
-  - `npm run build`, `npm run lint` 통과
+- 문제: `아연` 함량순 1위 "원기정 셀렌효모" 90mg(상한 35mg의 2배 초과)가 검색 화면에서 경고 없이 보인다. 상한 판정(`exceedsUpperLimit`)은 비교·상세 응답에만 있고 검색 응답(`ProductSearchItem`)에는 없다. 제품 `parseStatus`도 `PARSED`다(상한 초과는 저장하지 않고 응답 때 계산하기로 했다).
+- 정할 것: 백엔드 검색 응답에 `exceedsUpperLimit`을 더할지(필드 추가라 화면 호환은 깨지지 않음). 더하면 `ResultRow`에서 `ReviewBadge` 조건에 넣는다.
+- 검증: `/search?q=아연&sort=amount` 1위에 "검수 대기"가 붙는다.
 
 ## 완료
 
@@ -50,6 +46,15 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ### 2026-11-09
 
+- 검색 화면 (`feat/search`)
+  - `cacheComponents`가 켜져 있어 `searchParams`는 `<Suspense>` 안의 컴포넌트에서 읽는다. 바깥 틀은 빌드 때 미리 만들어지고 결과만 요청 때 채워진다(빌드 결과 `/search`가 ◐ Partial Prerender).
+  - 검색어·정렬·페이지를 URL에 둬서 클라이언트 컴포넌트 없이 만들었다. 검색창은 `<form action="/search">`, 정렬·페이지는 `<Link>`. 클라이언트 컴포넌트는 에러 경계(`error.tsx`) 하나뿐이다. 이 Next 버전의 에러 경계는 `reset`이 아니라 `retry`를 받는다.
+  - `api()`는 백엔드 에러 본문(`INVALID_INPUT` 등)을 `{ error }`로 돌려주고, 백엔드가 꺼져 있거나 JSON이 아니면 예외를 던진다. 앞은 화면에 백엔드 문구(`details[0].reason`)를 그대로, 뒤는 `error.tsx`가 "불러오지 못했어요"를 보여준다.
+  - 검색 응답에는 기준값·주 단위가 없어 기준 대비 %·"다른 단위 표기"는 검색 화면에 두지 않는다(목록·상세에서 보여줌). 1일 함량이 없으면 "함량 확인 필요".
+  - 성분 이름 뒤 조사("비타민 C이")는 받침에 따라 달라 붙이지 않았다.
+  - 데이터 기준일을 주는 API가 없어 푸터에는 출처만 뒀다.
+  - 실제 데이터로 확인(Playwright): `비타민C` 함량순(배지 두 종류), `아연` 함량순, `크롬` 마지막 페이지(1일 함량 없음 3건), `종근당`(함량·함량순 숨김), `q=C`·`종근당&sort=amount`(백엔드 문구), 없는 검색어, 잘못된 `page`, 백엔드 중지(에러 화면).
+  - 검색 결과 수가 띄어쓰기에 따라 다르다(`비타민C` 9,042개, `비타민 C` 7,523개). 성분은 둘 다 `비타민 C`로 잡히니 제품명 유사도 쪽 차이로 보인다. 화면 문제가 아니라 기록만 한다.
 - 레포 기본 설정 (PR #1)
   - CORS를 백엔드에 넣지 않았다. 브라우저는 같은 출처 `/api`로만 부르고, 로컬은 Next rewrites, 운영은 Nginx가 api로 넘긴다. 서버 컴포넌트는 `API_URL`로 백엔드를 직접 부른다(서버끼리라 CORS 무관). 다른 도메인에서 API를 부를 일이 생기면 그때 넣는다.
   - `NEXT_PUBLIC_` 환경 변수는 쓰지 않는다. `next build` 때 값이 박혀 이미지 하나로 환경을 바꿀 수 없다.
