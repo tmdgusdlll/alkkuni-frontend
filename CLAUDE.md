@@ -2,7 +2,9 @@
 
 # CLAUDE.md
 
-알꾼이 프론트엔드(Next.js). 백엔드는 옆 폴더 `../alkkuni-backend`, 계획·진행 기록은 그 레포의 `docs/PLANNING.md`, `docs/PROGRESS.md`에 있다.
+알꾼이 프론트엔드(Next.js). 백엔드는 옆 폴더 `../alkkuni-backend`, 전체 계획은 그 레포의 `docs/PLANNING.md`에 있다.
+
+**작업을 시작할 때 `docs/PROGRESS.md`를 먼저 읽는다.** "지금 상태"에서 체크 안 된 첫 항목이 다음 작업이고, "다음 할 일"에 정할 것과 검증 기준이 있다. 진행 기록은 작업 PR 안에서 갱신한다(머지 후 문서만 고치는 변경을 만들지 않는다). 섹션별 갱신 방법은 `PROGRESS.md` 상단 규칙을 따른다.
 
 ## 명령어
 
