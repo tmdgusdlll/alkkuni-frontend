@@ -1,12 +1,25 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { BasisBadge, ReviewBadge } from "@/components/badges";
 import { DvProgress } from "@/components/DvProgress";
 import { FormIcon } from "@/components/FormIcon";
 import { api } from "@/lib/api";
 import { formatAmount, formatDate } from "@/lib/format";
 import type { DetailIngredient, DetailRecall, ProductDetailResponse } from "@/types/api";
+
+// 탭 제목과 본문이 같은 요청 안에서 한 번만 부르게 묶는다(api()가 timeout signal을 넘겨 fetch 자동 중복 제거를 믿지 않음).
+// 숫자가 아니거나 백엔드 Long(19자리)을 넘는 id는 백엔드가 400을 주지만 사용자에게는 없는 제품과 같아 부르지 않는다
+const getProduct = cache(async (id: string) =>
+  /^\d{1,18}$/.test(id) ? api<ProductDetailResponse>(`/api/products/${id}`) : null,
+);
+
+export async function generateMetadata(props: PageProps<"/products/[id]">): Promise<Metadata> {
+  const res = await getProduct((await props.params).id);
+  // 에러면 기본 제목(layout의 "알꾼이")을 그대로 둔다. 화면은 본문이 처리한다
+  return res && "data" in res ? { title: `${res.data.name} - 알꾼이` } : {};
+}
 
 // DESIGN.md 8.4. params는 요청 때만 알 수 있어 Suspense 안에서 읽는다(cacheComponents). 바깥 틀은 미리 만들어진다
 export default function ProductPage(props: PageProps<"/products/[id]">) {
@@ -20,14 +33,11 @@ export default function ProductPage(props: PageProps<"/products/[id]">) {
 }
 
 async function ProductContent({ params }: { params: PageProps<"/products/[id]">["params"] }) {
-  const { id } = await params;
-  // 숫자가 아닌 id는 백엔드가 400을 주지만 사용자에게는 없는 제품과 같다
-  if (!/^\d+$/.test(id)) notFound();
-
-  const res = await api<ProductDetailResponse>(`/api/products/${id}`);
+  const res = await getProduct((await params).id);
+  if (!res) notFound();
   if ("error" in res) {
     if (res.error.code === "PRODUCT_NOT_FOUND") notFound();
-    // 그 밖의 4xx는 백엔드 문구를 그대로(ErrorCode.message는 사용자에게 보여도 되는 문장만 쓴다)
+    // 그 밖의 4xx는 백엔드 문구를 그대로(ErrorCode.message는 사용자에게 보여도 되는 문장만 쓴다). 5xx는 api()가 던져 error.tsx로
     return (
       <p role="alert" className="mt-10 text-center text-ink-muted">
         {res.error.details?.[0]?.reason ?? res.error.message}
@@ -189,10 +199,27 @@ function IngredientRow({ g }: { g: DetailIngredient }) {
         )}
       </p>
       <div className="col-span-2 empty:hidden sm:col-span-1">
-        <DvProgress percent={g.referencePercent} hasReference={g.referenceAmount !== null} />
+        <ReferenceCell g={g} />
       </div>
     </li>
   );
+}
+
+// 기준치 대비 칸(DESIGN.md 7.2, 7.3.1). 판정은 백엔드 값만 쓴다
+function ReferenceCell({ g }: { g: DetailIngredient }) {
+  // 오류 의심 값은 판정하지 않는다. 막대·%(예: 25,000%)를 그리면 초과 섭취를 단정하는 모양이 돼 "검수 대기"만 남긴다
+  if (g.exceedsUpperLimit) return null;
+  // 1일 함량을 모르는 행은 원문 값만(함량 칸에 있음)
+  if (g.dailyAmount === null) return null;
+  // 기준값은 있는데 %가 없으면 단위가 달라 비교하지 못한 것(엽산 DFE·mg 등)
+  if (g.referencePercent === null && g.referenceAmount !== null) {
+    return (
+      <span className="inline-flex rounded-full bg-neutral-bg px-2.5 py-1 text-xs font-bold text-neutral-fg">
+        다른 단위 표기
+      </span>
+    );
+  }
+  return <DvProgress percent={g.referencePercent} hasReference={g.referenceAmount !== null} />;
 }
 
 // DESIGN.md 7.4: 회수일·공지 링크는 API에 없어 자리를 두지 않는다

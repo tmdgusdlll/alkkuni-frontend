@@ -4,7 +4,8 @@ export function DvProgress({ percent, hasReference }: { percent: number | null; 
     // 기준값이 없는 성분만 알리고, 단위를 비교할 수 없는 경우는 비워 둔다
     return hasReference ? null : <span className="text-xs text-ink-muted">기준치 없음</span>;
   }
-  const over = percent >= 100;
+  // 기준치와 같은 100%는 "넘음"이 아니다(DESIGN.md 7.2 "100%를 넘으면")
+  const over = percent > 100;
   return (
     <div className="flex items-center gap-3">
       <div
@@ -18,7 +19,8 @@ export function DvProgress({ percent, hasReference }: { percent: number | null; 
           style={{ width: `${Math.max(Math.min(percent, 100), 4)}%` }}
         />
       </div>
-      <span className="w-12 shrink-0 text-right text-sm font-bold tabular-nums text-ink-soft" aria-hidden="true">
+      {/* 최소 폭만 두고 늘어나게 한다(고함량은 "5,000%"처럼 길다) */}
+      <span className="min-w-12 shrink-0 text-right text-sm font-bold tabular-nums text-ink-soft" aria-hidden="true">
         {percent.toLocaleString("ko-KR")}%
       </span>
     </div>

@@ -23,7 +23,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 - [x] 검색 `/search` (`GET /api/products`) (PR #2)
   - [x] Pretendard 글꼴, 공통 `api()` 함수, 응답 타입, 헤더·푸터, `BasisBadge`·`ReviewBadge`, 검색 결과·정렬·페이지, 에러 화면, 메인 검색 히어로
   - [x] 상한 2배 초과 값 "검수 대기"(백엔드 검색 응답에 `exceedsUpperLimit` 추가, 백엔드 `feat/search-upper-limit`)
-- [ ] **제품 상세** `/products/[id]` (`GET /api/products/{id}`)
+- [ ] **제품 상세** `/products/[id]` (`GET /api/products/{id}`) (PR #3)
   - [x] 제품 요약(제형 아이콘·신고 정보·회수·검수 배지), 성분표(1일 함량·기준치 대비 `DvProgress`·원문 값), 기능성·주의사항 원문, 회수 이력, 없는 제품 화면, 검색 결과에서 상세 링크
 - [ ] 성분별 제품 목록 `/explore` (`GET /api/products/explore`, `GET /api/ingredients`)
 - [ ] 제품 비교 `/compare?ids=` (`GET /api/products/compare`)
@@ -52,7 +52,8 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ### 2026-11-11
 
-- 제품 상세 (`feat/product-detail`)
+- 제품 상세 (`feat/product-detail`, PR #3)
+  - `/code-review` 반영: 5xx는 JSON 에러 본문이 와도 `api()`가 예외를 던져 `error.tsx`("다시 시도")로 보낸다(검색도 같이 바뀜, 4xx만 화면에 백엔드 문구). 상한 2배 초과 행은 막대·%를 빼고 "검수 대기"만(30595 아연 1,058%가 진한 막대로 떠 초과를 단정하는 모양이었음). 기준값은 있는데 %가 null이면 "다른 단위 표기"(36488 비타민 A `mg RE` vs 기준 `mg RAE`). 정확히 100%는 진하게 칠하지 않는다(`> 100`). % 칸은 최소 폭만(11065 B12 7,291%). id는 18자리까지만 백엔드에 묻고 나머지는 없는 제품. 에러 경계를 `components/LoadError`로 묶었다. 탭 제목에 제품명(`generateMetadata`, 본문과 같은 요청을 React `cache`로 한 번만 부름. `api()`가 timeout `signal`을 넘겨 fetch 자동 중복 제거를 믿지 않음).
   - 초안(`4. 제품 상세@1x.png`)에서 API에 없는 것은 뺐다: 구매·서랍 버튼(MVP 밖), 회수일·식약처 공지 링크, "원문 기준규격 보기", 성분별로 나눈 기능성 카드, 단위 환산("400IU").
   - 기능성·주의사항은 원문 줄바꿈을 그대로(`whitespace-pre-line`) 보여준다. 원문 형식이 제품마다 달라(`* 성분\n①…`, `성분 : (1)…`) 성분별 카드로 나누면 틀리게 쪼개진다.
   - 성분표는 성분표 순서 그대로, 같은 성분 행도 합치지 않는다(백엔드 응답 규칙). 1일 함량을 계산하지 못한 행은 원문 `amount unit / basisAmount basisUnit`만 보여주고 막대·%는 없다. %가 null이면 기준값이 없는 성분만 "기준치 없음", 단위를 비교할 수 없는 경우는 비운다(DESIGN.md 7.2).
