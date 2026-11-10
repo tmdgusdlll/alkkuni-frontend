@@ -4,6 +4,7 @@ import { BasisBadge, ReviewBadge } from "@/components/badges";
 import { FormIcon } from "@/components/FormIcon";
 import { SearchBar } from "@/components/SearchBar";
 import { api } from "@/lib/api";
+import { formatAmount, formatDate } from "@/lib/format";
 import type { ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
 
 const PAGE_SIZE = 20;
@@ -158,9 +159,11 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
       <div className="flex min-w-0 flex-[999_1_320px] items-center gap-4">
         <FormIcon form={item.form} />
         <div className="min-w-0">
-          <p className="font-bold text-ink">{item.name}</p>
+          <Link href={`/products/${item.id}`} className="block font-bold text-ink hover:text-brand-700 hover:underline">
+            {item.name}
+          </Link>
           <p className="mt-0.5 text-sm text-ink-muted">
-            {[item.manufacturer, item.form, item.reportedOn && `${item.reportedOn.replaceAll("-", ".")} 신고`]
+            {[item.manufacturer, item.form, item.reportedOn && `${formatDate(item.reportedOn)} 신고`]
               .filter(Boolean)
               .join(" · ")}
           </p>
@@ -176,8 +179,7 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
           ) : (
             <>
               <b className="tabular-nums text-xl font-extrabold text-ink">
-                {/* 백엔드가 μg을 mg으로 바꿔 주므로(0.4μg → 0.0004) 기본값(소수 3자리)이면 0으로 뭉개진다 */}
-                {item.dailyAmount.toLocaleString("ko-KR", { maximumFractionDigits: 6 })}
+                {formatAmount(item.dailyAmount)}
                 <small className="ml-0.5 text-xs font-medium text-ink-muted">{item.dailyUnit}</small>
               </b>
               {/* 배지 폭이 달라도 숫자 열이 흔들리지 않게 자리를 고정한다 */}
