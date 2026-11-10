@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { BasisBadge, ReviewBadge } from "@/components/badges";
+import { FormIcon } from "@/components/FormIcon";
 import { SearchBar } from "@/components/SearchBar";
 import { api } from "@/lib/api";
 import type { ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
@@ -132,16 +133,20 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
 function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: boolean }) {
   return (
     <li className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-line-soft px-5 py-4 last:border-b-0">
-      <div className="min-w-0 flex-[999_1_320px]">
+      <div className="flex min-w-0 flex-[999_1_320px] items-center gap-4">
+        <FormIcon form={item.form} />
+        <div className="min-w-0">
         <p className="font-bold text-ink">{item.name}</p>
         <p className="mt-0.5 text-sm text-ink-muted">
           {[item.manufacturer, item.form, item.reportedOn && `${item.reportedOn.replaceAll("-", ".")} 신고`]
             .filter(Boolean)
             .join(" · ")}
         </p>
+        </div>
       </div>
       <div className="flex flex-[1_1_auto] items-center justify-end gap-2">
-        {item.parseStatus === "NEEDS_REVIEW" && <ReviewBadge />}
+        {/* DESIGN.md 7.3.1: 검수 대기 제품이거나 상한 2배를 넘는 오류 의심 값 */}
+        {(item.parseStatus === "NEEDS_REVIEW" || item.exceedsUpperLimit) && <ReviewBadge />}
         {showAmount &&
           (item.dailyAmount === null ? (
             // 1일 함량을 계산하지 못한 제품. 원문 값은 상세에서 보여준다

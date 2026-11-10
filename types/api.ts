@@ -26,6 +26,8 @@ export type ProductSearchItem = {
   dailyUnit: string | null;
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;
+  // dailyAmount가 상한 2배를 넘으면 true(오류 의심). 성분 검색이 아니면 false
+  exceedsUpperLimit: boolean;
 };
 
 export type ProductSearchResponse = {
