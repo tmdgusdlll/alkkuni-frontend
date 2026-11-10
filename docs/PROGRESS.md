@@ -20,10 +20,11 @@
 API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화면은 백엔드 3단계(인증·서랍) 뒤다. 순서와 범위는 `DESIGN.md` "MVP 범위", `docs/design/components.md` "작업 순서 제안"을 따른다.
 
 - [x] 레포 기본 설정: `/api` rewrites, `CLAUDE.md`, 디자인 문서·색 토큰 (PR #1)
-- [ ] **검색** `/search` (`GET /api/products`) (PR #2)
+- [x] 검색 `/search` (`GET /api/products`) (PR #2)
   - [x] Pretendard 글꼴, 공통 `api()` 함수, 응답 타입, 헤더·푸터, `BasisBadge`·`ReviewBadge`, 검색 결과·정렬·페이지, 에러 화면, 메인 검색 히어로
   - [x] 상한 2배 초과 값 "검수 대기"(백엔드 검색 응답에 `exceedsUpperLimit` 추가, 백엔드 `feat/search-upper-limit`)
-- [ ] 제품 상세 `/products/[id]` (`GET /api/products/{id}`)
+- [ ] **제품 상세** `/products/[id]` (`GET /api/products/{id}`) (PR #3)
+  - [x] 제품 요약(제형 아이콘·신고 정보·회수·검수 배지), 성분표(1일 함량·기준치 대비 `DvProgress`·원문 값), 기능성·주의사항 원문, 회수 이력, 없는 제품 화면, 검색 결과에서 상세 링크
 - [ ] 성분별 제품 목록 `/explore` (`GET /api/products/explore`, `GET /api/ingredients`)
 - [ ] 제품 비교 `/compare?ids=` (`GET /api/products/compare`)
 - [ ] 메인 `/` (검색 히어로. 인기 성분 비교는 백엔드 API가 생기면)
@@ -32,16 +33,34 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ## 다음 할 일
 
-### 검색 화면 마무리
+### 제품 상세 마무리
 
-- 백엔드 `feat/search-upper-limit` PR을 먼저 머지한다. 프론트가 `exceedsUpperLimit`을 읽으므로 백엔드보다 먼저 배포되면 항상 undefined(경고 없음)다. 화면이 깨지지는 않는다.
-- 이 PR(`feat/search`)이 머지되면 "검색"을 체크하고 다음은 제품 상세다.
+- 이 PR(`feat/product-detail`)이 머지되면 "제품 상세"를 체크하고 다음은 성분별 제품 목록 `/explore`다. `DvProgress`·`formatAmount`(`lib/format.ts`)를 그대로 쓴다.
+- "비교에 추가"(DESIGN.md 8.4 왼쪽)는 비교 화면 PR에서 단다. 지금 달면 갈 곳이 없다.
+- 없는 제품은 화면만 "제품을 찾을 수 없어요"이고 HTTP 상태는 200이다. `params`를 Suspense 안에서 읽어 응답 헤더가 먼저 나가기 때문이다(Next가 `noindex`는 붙인다). 검색 엔진에 상세를 노출할 때(배포 뒤) 404 상태가 필요하면 다시 본다.
+
+### 백엔드에 걸린 것
+
+- 검색 "검수 대기" 배지는 백엔드 `feat/search-upper-limit`이 머지·배포돼야 실제로 뜬다(그 전엔 `exceedsUpperLimit`이 undefined라 배지만 없음).
 
 ## 완료
 
+- 2026-11-11 검색 화면 `/search` (PR #2)
 - 2026-11-09 레포 기본 설정 (PR #1)
 
 ## 작업 로그
+
+### 2026-11-11
+
+- 제품 상세 (`feat/product-detail`, PR #3)
+  - `/code-review` 반영: 5xx는 JSON 에러 본문이 와도 `api()`가 예외를 던져 `error.tsx`("다시 시도")로 보낸다(검색도 같이 바뀜, 4xx만 화면에 백엔드 문구). 상한 2배 초과 행은 막대·%를 빼고 "검수 대기"만(30595 아연 1,058%가 진한 막대로 떠 초과를 단정하는 모양이었음). 기준값은 있는데 %가 null이면 "다른 단위 표기"(36488 비타민 A `mg RE` vs 기준 `mg RAE`). 정확히 100%는 진하게 칠하지 않는다(`> 100`). % 칸은 최소 폭만(11065 B12 7,291%). id는 18자리까지만 백엔드에 묻고 나머지는 없는 제품. 에러 경계를 `components/LoadError`로 묶었다. 탭 제목에 제품명(`generateMetadata`, 본문과 같은 요청을 React `cache`로 한 번만 부름. `api()`가 timeout `signal`을 넘겨 fetch 자동 중복 제거를 믿지 않음).
+  - 초안(`4. 제품 상세@1x.png`)에서 API에 없는 것은 뺐다: 구매·서랍 버튼(MVP 밖), 회수일·식약처 공지 링크, "원문 기준규격 보기", 성분별로 나눈 기능성 카드, 단위 환산("400IU").
+  - 기능성·주의사항은 원문 줄바꿈을 그대로(`whitespace-pre-line`) 보여준다. 원문 형식이 제품마다 달라(`* 성분\n①…`, `성분 : (1)…`) 성분별 카드로 나누면 틀리게 쪼개진다.
+  - 성분표는 성분표 순서 그대로, 같은 성분 행도 합치지 않는다(백엔드 응답 규칙). 1일 함량을 계산하지 못한 행은 원문 `amount unit / basisAmount basisUnit`만 보여주고 막대·%는 없다. %가 null이면 기준값이 없는 성분만 "기준치 없음", 단위를 비교할 수 없는 경우는 비운다(DESIGN.md 7.2).
+  - 성분표는 표(`<table>`)가 아니라 그리드 목록이다. 표로 두면 390px 화면에서 가로 스크롤에 %가 가려졌다. 좁은 화면은 막대가 성분·함량 아래로 내려간다.
+  - 함량 표시(`formatAmount`)와 날짜(`formatDate`)를 `lib/format.ts`로 옮겨 검색과 같이 쓴다. `DvProgress`는 목록·비교에서 다시 쓸 거라 `components/`에 뒀다.
+  - 숫자가 아닌 id(`/products/abc`)는 백엔드가 400을 주지만 사용자에게는 없는 제품과 같아 부르기 전에 `notFound()`.
+  - 실제 데이터로 확인(Playwright): 성분 27행 멀티팩(426, 같은 성분 두 행·150%), 회수 1건(35466), 1일 함량 없음(11051, 원문 값), 검수 대기(11012, 안내 문구), 없는 id, `abc`, 390px 화면.
 
 ### 2026-11-09
 

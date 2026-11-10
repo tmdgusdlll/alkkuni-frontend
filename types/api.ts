@@ -36,3 +36,56 @@ export type ProductSearchResponse = {
   matchedIngredient: MatchedIngredient | null;
   items: ProductSearchItem[];
 };
+
+// GET /api/products/{id} (ProductDetailResponse.kt)
+export type RecallListStatus = "LISTED" | "DELISTED";
+
+export type DetailIngredient = {
+  // 사전에 없는 성분은 null이고 name은 원문 이름
+  ingredientId: number | null;
+  name: string;
+  rawName: string;
+  // 1일 기준값. 기준값이 없거나 사전에 없는 성분은 null
+  referenceAmount: number | null;
+  referenceUnit: string | null;
+  // 1일 함량(단위 통일). 계산하지 못하면 null이고 화면은 원문 amount/basis를 보여준다
+  dailyAmount: number | null;
+  dailyUnit: string | null;
+  // 기준값 대비 %(소수점 버림). 기준값이 없거나 단위를 비교할 수 없으면 null
+  referencePercent: number | null;
+  // 판정하지 않으면 null(기준값 없음, 비교 못 하는 단위, 상한 2배 초과)
+  meetsReference: boolean | null;
+  exceedsUpperLimit: boolean;
+  amount: number;
+  unit: string;
+  basisAmount: number;
+  basisUnit: string;
+};
+
+export type DetailRecall = {
+  productName: string;
+  manufacturer: string | null;
+  reason: string | null;
+  expiryText: string | null;
+  // DELISTED: 식약처 목록에서 빠졌지만 회수 사실은 남긴다
+  listStatus: RecallListStatus;
+};
+
+export type ProductDetailResponse = {
+  id: number;
+  reportNo: string;
+  name: string;
+  manufacturer: string | null;
+  form: string | null;
+  reportedOn: string | null;
+  intakeMethod: string | null;
+  functionalMaterials: string | null;
+  functionality: string | null;
+  precautions: string | null;
+  basisCheck: BasisCheck | null;
+  parseStatus: ParseStatus;
+  // 성분표 순서. 같은 성분 행이 여러 개여도 합치지 않는다
+  ingredients: DetailIngredient[];
+  // 신고번호가 정확히 같은 회수만
+  recalls: DetailRecall[];
+};
