@@ -11,7 +11,8 @@ function baseUrl() {
  * 백엔드가 꺼져 있거나 본문이 JSON이 아니면 예외를 던져 error.tsx가 받는다.
  */
 export async function api<T>(path: string): Promise<ApiResponse<T>> {
-  const res = await fetch(`${baseUrl()}${path}`);
+  // 백엔드가 응답 없이 멈추면 "불러오는 중"이 끝나지 않으니 10초에 끊고 error.tsx로 넘긴다
+  const res = await fetch(`${baseUrl()}${path}`, { signal: AbortSignal.timeout(10_000) });
   try {
     return (await res.json()) as ApiResponse<T>;
   } catch {

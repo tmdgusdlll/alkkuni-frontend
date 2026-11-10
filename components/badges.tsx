@@ -9,13 +9,16 @@ export function BasisBadge({ basisCheck }: { basisCheck: BasisCheck | null }) {
       1일 기준
     </span>
   ) : (
-    <span
-      className="inline-flex items-center gap-1 rounded-full bg-neutral-bg px-2.5 py-1 text-xs font-bold text-neutral-fg"
-      title="제품 성분표에 적힌 기준량당 함량이에요. 하루 섭취량과 같은지 확인하지 못했어요."
-    >
-      표시 기준량
-      <HelpIcon />
-    </span>
+    // title은 터치·키보드로 열 수 없어 details로 누르면 설명이 열리게 한다(DESIGN.md 7.3)
+    <details className="relative inline-block">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-full bg-neutral-bg px-2.5 py-1 text-xs font-bold text-neutral-fg [&::-webkit-details-marker]:hidden">
+        표시 기준량
+        <HelpIcon />
+      </summary>
+      <p className="absolute right-0 top-full z-10 mt-1 w-56 rounded-tile border border-line bg-white p-3 text-xs text-ink-soft shadow-card">
+        제품 성분표에 적힌 기준량당 함량이에요. 하루 섭취량과 같은지 확인하지 못했어요.
+      </p>
+    </details>
   );
 }
 

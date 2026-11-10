@@ -18,6 +18,8 @@ export function SearchBar({ defaultValue, size = "compact" }: { defaultValue?: s
         type="search"
         defaultValue={defaultValue}
         required
+        // 백엔드 최소 길이(ProductSearchService TEXT_MIN_LENGTH)와 맞춘다
+        minLength={2}
         maxLength={100}
         placeholder="제품명이나 성분을 검색해 보세요 (예: 비타민C, 아연)"
         className={`min-w-0 flex-1 bg-transparent outline-none placeholder:text-ink-muted ${hero ? "text-lg" : "text-[15px]"}`}

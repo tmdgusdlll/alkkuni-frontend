@@ -20,7 +20,7 @@
 API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화면은 백엔드 3단계(인증·서랍) 뒤다. 순서와 범위는 `DESIGN.md` "MVP 범위", `docs/design/components.md` "작업 순서 제안"을 따른다.
 
 - [x] 레포 기본 설정: `/api` rewrites, `CLAUDE.md`, 디자인 문서·색 토큰 (PR #1)
-- [ ] **검색** `/search` (`GET /api/products`)
+- [ ] **검색** `/search` (`GET /api/products`) (PR #2)
   - [x] Pretendard 글꼴, 공통 `api()` 함수, 응답 타입, 헤더·푸터, `BasisBadge`·`ReviewBadge`, 검색 결과·정렬·페이지, 에러 화면, 메인 검색 히어로
   - [x] 상한 2배 초과 값 "검수 대기"(백엔드 검색 응답에 `exceedsUpperLimit` 추가, 백엔드 `feat/search-upper-limit`)
 - [ ] 제품 상세 `/products/[id]` (`GET /api/products/{id}`)
@@ -45,7 +45,8 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ### 2026-11-09
 
-- 검색 화면 (`feat/search`)
+- 검색 화면 (`feat/search`, PR #2)
+  - `/code-review` 반영: 함량은 소수 6자리까지 보여준다(백엔드가 μg을 mg으로 바꿔 B12 0.0006mg이 기본 3자리면 "0.001"·"0"이 됨). 마지막 페이지를 넘은 `page`는 "첫 페이지로" 링크, 정렬 에러(`details[0].field == "sort"`)는 "관련도순으로 보기" 링크. "표시 기준량" 설명은 `title` 대신 `<details>`로(터치·키보드로 열림). `api()`에 10초 타임아웃, 검색창 `minLength={2}`(백엔드 최소 길이). 결과는 쿼리를 key로 한 `<Suspense>` 안에 둬서 정렬·페이지 이동 때도 "불러오는 중"이 보인다.
   - `cacheComponents`가 켜져 있어 `searchParams`는 `<Suspense>` 안의 컴포넌트에서 읽는다. 바깥 틀은 빌드 때 미리 만들어지고 결과만 요청 때 채워진다(빌드 결과 `/search`가 ◐ Partial Prerender).
   - 검색어·정렬·페이지를 URL에 둬서 클라이언트 컴포넌트 없이 만들었다. 검색창은 `<form action="/search">`, 정렬·페이지는 `<Link>`. 클라이언트 컴포넌트는 에러 경계(`error.tsx`) 하나뿐이다. 이 Next 버전의 에러 경계는 `reset`이 아니라 `retry`를 받는다.
   - `api()`는 백엔드 에러 본문(`INVALID_INPUT` 등)을 `{ error }`로 돌려주고, 백엔드가 꺼져 있거나 JSON이 아니면 예외를 던진다. 앞은 화면에 백엔드 문구(`details[0].reason`)를 그대로, 뒤는 `error.tsx`가 "불러오지 못했어요"를 보여준다.

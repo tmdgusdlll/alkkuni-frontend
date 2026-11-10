@@ -42,20 +42,34 @@ async function SearchContent({ searchParams }: { searchParams: PageProps<"/searc
   }
 
   const query = new URLSearchParams({ q: params.q, sort: params.sort, page: String(params.page), size: String(PAGE_SIZE) });
-  const res = await api<ProductSearchResponse>(`/api/products?${query}`);
 
   return (
     <>
       <SearchBar defaultValue={params.q} />
-      {"error" in res ? (
-        // 백엔드 문구를 그대로 보여준다(ErrorCode.message는 사용자에게 보여도 되는 문장만 쓴다)
-        <p role="alert" className="mt-10 text-center text-ink-muted">
-          {res.error.details?.[0]?.reason ?? res.error.message}
-        </p>
-      ) : (
-        <Results params={params} data={res.data} />
-      )}
+      {/* key가 바뀌면 새 경계라 정렬·페이지 이동 때도 이전 결과 대신 "불러오는 중"을 보여준다 */}
+      <Suspense key={String(query)} fallback={<p className="mt-10 text-center text-ink-muted">불러오는 중…</p>}>
+        <SearchResults params={params} query={query} />
+      </Suspense>
     </>
+  );
+}
+
+async function SearchResults({ params, query }: { params: Params; query: URLSearchParams }) {
+  const res = await api<ProductSearchResponse>(`/api/products?${query}`);
+  if (!("error" in res)) return <Results params={params} data={res.data} />;
+
+  const detail = res.error.details?.[0];
+  return (
+    // 백엔드 문구를 그대로 보여준다(ErrorCode.message는 사용자에게 보여도 되는 문장만 쓴다)
+    <div role="alert" className="mt-10 text-center text-ink-muted">
+      <p>{detail?.reason ?? res.error.message}</p>
+      {/* 함량순을 못 쓰는 검색어 등 정렬이 원인이면 기본 정렬로 돌아갈 길을 준다 */}
+      {detail?.field === "sort" && params.sort !== "relevance" && (
+        <Link href={searchHref({ ...params, sort: "relevance", page: 0 })} className="mt-3 inline-block font-bold text-brand-700">
+          관련도순으로 보기
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -95,8 +109,16 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
         </nav>
       </div>
 
-      {data.items.length === 0 ? (
+      {data.totalCount === 0 ? (
         <p className="mt-16 text-center text-ink-muted">검색 결과가 없어요. 다른 이름으로 검색해 보세요.</p>
+      ) : params.page > lastPage ? (
+        // 공유 링크나 데이터가 줄어 마지막 페이지를 넘은 경우
+        <p className="mt-16 text-center text-ink-muted">
+          이 페이지에는 결과가 없어요.{" "}
+          <Link href={searchHref({ ...params, page: 0 })} className="font-bold text-brand-700">
+            첫 페이지로
+          </Link>
+        </p>
       ) : (
         <ul className="mt-6 overflow-hidden rounded-card border border-line bg-white shadow-card">
           {data.items.map((item) => (
@@ -105,7 +127,7 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
         </ul>
       )}
 
-      {lastPage > 0 && (
+      {lastPage > 0 && params.page <= lastPage && (
         <nav aria-label="페이지" className="mt-6 flex items-center justify-center gap-4 text-sm">
           {params.page > 0 ? (
             <Link href={searchHref({ ...params, page: params.page - 1 })} className="font-bold">
@@ -136,12 +158,12 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
       <div className="flex min-w-0 flex-[999_1_320px] items-center gap-4">
         <FormIcon form={item.form} />
         <div className="min-w-0">
-        <p className="font-bold text-ink">{item.name}</p>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          {[item.manufacturer, item.form, item.reportedOn && `${item.reportedOn.replaceAll("-", ".")} 신고`]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
+          <p className="font-bold text-ink">{item.name}</p>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            {[item.manufacturer, item.form, item.reportedOn && `${item.reportedOn.replaceAll("-", ".")} 신고`]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
         </div>
       </div>
       <div className="flex flex-[1_1_auto] items-center justify-end gap-2">
@@ -154,7 +176,8 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
           ) : (
             <>
               <b className="tabular-nums text-xl font-extrabold text-ink">
-                {item.dailyAmount.toLocaleString("ko-KR")}
+                {/* 백엔드가 μg을 mg으로 바꿔 주므로(0.4μg → 0.0004) 기본값(소수 3자리)이면 0으로 뭉개진다 */}
+                {item.dailyAmount.toLocaleString("ko-KR", { maximumFractionDigits: 6 })}
                 <small className="ml-0.5 text-xs font-medium text-ink-muted">{item.dailyUnit}</small>
               </b>
               {/* 배지 폭이 달라도 숫자 열이 흔들리지 않게 자리를 고정한다 */}
