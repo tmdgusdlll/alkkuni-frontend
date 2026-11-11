@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { BasisBadge, ReviewBadge } from "@/components/badges";
 import { FormIcon } from "@/components/FormIcon";
+import { Pagination } from "@/components/Pagination";
 import { SearchBar } from "@/components/SearchBar";
 import { api } from "@/lib/api";
 import { formatAmount, formatDate } from "@/lib/format";
@@ -128,27 +129,7 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
         </ul>
       )}
 
-      {lastPage > 0 && params.page <= lastPage && (
-        <nav aria-label="페이지" className="mt-6 flex items-center justify-center gap-4 text-sm">
-          {params.page > 0 ? (
-            <Link href={searchHref({ ...params, page: params.page - 1 })} className="font-bold">
-              ← 이전
-            </Link>
-          ) : (
-            <span className="text-ink-muted">← 이전</span>
-          )}
-          <span className="tabular-nums text-ink-muted">
-            {params.page + 1} / {lastPage + 1}
-          </span>
-          {params.page < lastPage ? (
-            <Link href={searchHref({ ...params, page: params.page + 1 })} className="font-bold">
-              다음 →
-            </Link>
-          ) : (
-            <span className="text-ink-muted">다음 →</span>
-          )}
-        </nav>
-      )}
+      <Pagination page={params.page} lastPage={lastPage} href={(page) => searchHref({ ...params, page })} />
     </section>
   );
 }

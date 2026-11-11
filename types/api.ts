@@ -89,3 +89,56 @@ export type ProductDetailResponse = {
   // 신고번호가 정확히 같은 회수만
   recalls: DetailRecall[];
 };
+
+// GET /api/ingredients (ingredient/IngredientController.kt). 성분 사전 전체가 이름순으로 온다
+export type IngredientItem = {
+  id: number;
+  name: string;
+  englishName: string | null;
+  // 함량 범위(min·max)의 단위. null이면 단위가 섞이지 않은 성분이다
+  defaultUnit: string | null;
+  // null이면 기준값이 없어 "기준 충족"(meetsReference)을 켤 수 없다
+  referenceAmount: number | null;
+  referenceUnit: string | null;
+};
+
+// product/ProductCompareResponse.kt CompareAmount: 성분 함량 한 행
+export type CompareAmount = {
+  // 1일 함량(단위 통일). 계산할 수 없으면 null이고 화면은 원문 값(amount/basis)을 보여준다
+  dailyAmount: number | null;
+  dailyUnit: string | null;
+  // 기준값 대비 %(소수점 버림). 기준값이 없거나 단위를 비교할 수 없으면 null
+  referencePercent: number | null;
+  // 행마다 따로 판정한다. 판정하지 않으면 null(기준값 없음, 비교 못 하는 단위, 상한 2배 초과)
+  meetsReference: boolean | null;
+  exceedsUpperLimit: boolean;
+  rawName: string;
+  amount: number;
+  unit: string;
+  basisAmount: number;
+  basisUnit: string;
+};
+
+// GET /api/products/explore (product/ProductExploreResponse.kt)
+export type ExploreIngredient = Pick<IngredientItem, "id" | "name" | "defaultUnit" | "referenceAmount" | "referenceUnit">;
+
+export type ProductExploreItem = {
+  id: number;
+  name: string;
+  manufacturer: string | null;
+  form: string | null;
+  reportedOn: string | null;
+  basisCheck: BasisCheck | null;
+  parseStatus: ParseStatus;
+  // 고른 성분 순서. 같은 성분 행이 여러 개면 values가 여러 개다(합치지 않음)
+  amounts: { ingredientId: number; values: CompareAmount[] }[];
+};
+
+export type ProductExploreResponse = {
+  totalCount: number;
+  // 고른 성분(요청 순서)
+  ingredients: ExploreIngredient[];
+  // 함량순 정렬과 함량 범위가 걸린 성분
+  baseIngredientId: number;
+  items: ProductExploreItem[];
+};
