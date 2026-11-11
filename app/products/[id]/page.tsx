@@ -66,7 +66,8 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
               이미지 준비 중
             </span>
           </div>
-          {p.manufacturer && <p className="mt-5 text-sm text-ink-muted">{p.manufacturer}</p>}
+          {/* 위탁생산 제조사라 브랜드처럼 보이지 않게 "제조사"를 붙인다. 브랜드는 API에 생기면 이 자리에 둔다 */}
+          {p.manufacturer && <p className="mt-5 text-sm text-ink-muted">제조사 {p.manufacturer}</p>}
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight break-keep text-ink">{p.name}</h1>
           {(p.recalls.length > 0 || needsReview) && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -87,6 +88,13 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
             <InfoTile label="섭취 방법" value={p.intakeMethod} wide />
             <InfoTile label="신고번호" value={p.reportNo} wide />
           </dl>
+          {/* 상세에는 담은 목록이 없어 이 제품을 담은 채로 비교 화면을 연다(DESIGN.md 8.4) */}
+          <Link
+            href={`/explore?ids=${p.id}#compare`}
+            className="mt-5 flex h-12 items-center justify-center rounded-full bg-brand-700 font-bold text-white hover:bg-brand-800 hover:text-white"
+          >
+            비교하러 가기
+          </Link>
         </section>
 
         {/* 오른쪽: 성분표 → 기능성 → 주의사항 → 회수 이력 */}

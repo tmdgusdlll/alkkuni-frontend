@@ -144,7 +144,7 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
             {item.name}
           </Link>
           <p className="mt-0.5 text-sm text-ink-muted">
-            {[item.manufacturer, item.form, item.reportedOn && `${formatDate(item.reportedOn)} 신고`]
+            {[item.manufacturer && `제조사 ${item.manufacturer}`, item.form, item.reportedOn && `${formatDate(item.reportedOn)} 신고`]
               .filter(Boolean)
               .join(" · ")}
           </p>
