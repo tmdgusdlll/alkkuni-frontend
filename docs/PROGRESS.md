@@ -42,8 +42,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 API `GET /api/products/compare?ids=1,2,3`(백엔드 `ProductCompareService`): 서로 다른 제품 2~3개, 아니면 400(`ids` "서로 다른 제품 2~3개를 골라 주세요."). 없는 제품은 `PRODUCT_NOT_FOUND`. 응답은 `products`(요청 순서) + `ingredients` 행(여러 제품에 든 성분이 먼저, `values[제품 순서]`가 `CompareAmount[]`, 없으면 빈 목록 → "—").
 
-1. 함량 칸 공용화: `/explore`의 `AmountCell`·`AmountStatus`·`barValue`·`isOtherUnit`를 `components/`로 옮긴다(둘 다 `CompareAmount`). **비교 응답의 성분 행에는 `defaultUnit`이 없다**(`CompareIngredient`: id·name·referenceAmount·referenceUnit만). 공용 컴포넌트는 `defaultUnit`을 선택 값으로 받고, 없으면 상세 화면 규칙("기준값은 있는데 %가 null이면 다른 단위 표기")으로 판정한다. 기준값이 없는 성분은 이 규칙으로 못 잡는다. 로컬 데이터에서 틀린 경우가 보이면 백엔드 응답에 `defaultUnit`을 더한다(백엔드 PR).
-   - 검증: `/explore` 화면이 그대로, lint·build 통과
+1. ~~함량 칸 공용화~~ (완료, 아래 작업 로그): `components/AmountCell.tsx`(`AmountCell`·`barValue`). 비교 응답에 `defaultUnit`을 더하는 백엔드 `feat/compare-default-unit`이 머지돼야 비교 칸의 "다른 단위 표기"가 맞게 뜬다.
 2. 담기: 담은 제품은 URL `ids`. "추가"·"빼기"는 `ids`를 바꾼 링크(`scroll={false}`), 클라이언트 컴포넌트 없음. 정렬·페이지·필터·성분 칩 링크와 폼(hidden)이 `ids`를 넘긴다. `parseParams`가 숫자 아닌 값·중복을 버리고, 4개째가 오면 앞 3개만 쓰고 "3개까지만 비교할 수 있어요. 하나를 빼고 추가해 주세요."를 보여준다.
 3. 비교 칸: 0개 안내, 1개 "하나 더 담아 주세요"(API 안 부름), 2~3개 비교 표(A/B/C 색 머리·빼기, 성분명 열 고정 + 가로 스크롤, "가장 많은 값 강조"는 제품마다 그 성분 행이 하나이고 `dailyUnit`이 모두 같을 때만). 4xx는 백엔드 문구.
 4. 위쪽 목록 바꾸기: 한 페이지 20개 → 10개(페이지 번호 유지), 필터 기본 접기(`<details>`), 표 행마다 "비교에 추가"(담긴 제품은 "담김"), 표 위 제품 검색바(`q`, `GET /api/products` 5개, 행마다 "추가").
@@ -68,6 +67,10 @@ API `GET /api/products/compare?ids=1,2,3`(백엔드 `ProductCompareService`): �
 
 ### 2026-11-11
 
+- 함량 칸 공용화 (`feat/compare` 1단계)
+  - `/explore`의 함량 칸(`AmountCell`, 기준치 칸, `barValue`, `isOtherUnit`)을 `components/AmountCell.tsx`로 옮겼다. 성분 정보는 `defaultUnit`·`referenceAmount`만 받는다.
+  - 계획은 비교 응답에 `defaultUnit`이 없으니 프론트가 "기준값은 있는데 %가 null이면 다른 단위"로 대신 판정하는 것이었다. 하지만 이 규칙은 기준값이 없는 성분(161개)의 다른 단위 값을 못 잡고, 백엔드는 이미 성분 사전의 값을 갖고 있어 필드 한 줄이면 된다. 그래서 백엔드 compare 응답에 `defaultUnit`을 더했다(`feat/compare-default-unit`, 테스트 "성분의 주 단위를 내보낸다"). 같은 판정을 두 곳에 두지 않는다.
+  - 확인: 옮기기 전후 `/explore` 4개 화면(아연 함량순, 엽산 30페이지, 루틴, 아연+엽산)의 렌더 텍스트가 같음. lint·build 통과.
 - 제품 비교 화면 구성 (`feat/compare`, 계획)
   - 처음 계획은 목록 `/explore`와 비교 `/compare?ids=`를 나누는 것이었다. 나누면 비교 페이지가 표 하나뿐이라 비어 보이고, 초안 3번의 "위에서 고르고 아래서 본다" 흐름이 끊겨 초안처럼 한 화면으로 바꿨다. 백엔드 API는 그대로 둘이다.
   - 체크박스 + "비교하기" GET 폼은 4개를 골라도 막지 못하고 한 페이지의 제품만 고를 수 있다. 행마다 "추가" 링크로 하나씩 담으면 3개 제한을 바로 알려주고, 검색으로 목록 밖 제품도 담는다.
