@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
-import { BasisBadge, ReviewBadge } from "@/components/badges";
+import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { DvProgress } from "@/components/DvProgress";
 import { FormIcon } from "@/components/FormIcon";
 import { api } from "@/lib/api";
@@ -212,13 +212,7 @@ function ReferenceCell({ g }: { g: DetailIngredient }) {
   // 1일 함량을 모르는 행은 원문 값만(함량 칸에 있음)
   if (g.dailyAmount === null) return null;
   // 기준값은 있는데 %가 없으면 단위가 달라 비교하지 못한 것(엽산 DFE·mg 등)
-  if (g.referencePercent === null && g.referenceAmount !== null) {
-    return (
-      <span className="inline-flex rounded-full bg-neutral-bg px-2.5 py-1 text-xs font-bold text-neutral-fg">
-        다른 단위 표기
-      </span>
-    );
-  }
+  if (g.referencePercent === null && g.referenceAmount !== null) return <OtherUnitBadge />;
   return <DvProgress percent={g.referencePercent} hasReference={g.referenceAmount !== null} />;
 }
 

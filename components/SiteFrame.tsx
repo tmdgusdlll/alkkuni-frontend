@@ -4,10 +4,16 @@ import Link from "next/link";
 export function SiteHeader() {
   return (
     <header className="border-b border-line bg-white">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center px-6">
+      <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-6 px-6">
         <Link href="/" className="text-xl font-extrabold tracking-tight text-ink hover:text-ink">
           알꾼이
         </Link>
+        {/* ponytail: 활성 메뉴 표시(aria-current)는 현재 경로가 필요해 클라이언트 컴포넌트가 된다. 메뉴가 늘면 붙인다 */}
+        <nav aria-label="주 메뉴">
+          <Link href="/explore" className="text-[15px] font-bold text-ink-soft hover:text-brand-700">
+            성분 비교
+          </Link>
+        </nav>
       </div>
     </header>
   );
