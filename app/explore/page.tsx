@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
+import { cacheLife } from "next/cache";
+import { cache, Suspense } from "react";
 import { AmountBar } from "@/components/AmountBar";
 import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { Pagination } from "@/components/Pagination";
@@ -44,12 +45,32 @@ export default function ExplorePage(props: PageProps<"/explore">) {
   );
 }
 
-async function ExploreContent({ searchParams }: { searchParams: PageProps<"/explore">["searchParams"] }) {
-  const [sp, res] = await Promise.all([searchParams, api<IngredientItem[]>("/api/ingredients")]);
-  // 성분 목록은 입력 없이 부르는 API라 4xx가 오면 사용자가 고칠 수 없다. error.tsx로 보낸다
+// 성분 사전(215개)은 Flyway로만 바뀌어 서버 메모리에 캐시한다. 조건이 바뀔 때마다 앞에 왕복이 붙지 않게
+async function getIngredients() {
+  "use cache";
+  cacheLife("hours");
+  const res = await api<IngredientItem[]>("/api/ingredients");
+  // 입력 없이 부르는 API라 4xx가 오면 사용자가 고칠 수 없다. error.tsx로 보낸다(던지면 캐시에 남지 않음)
   if ("error" in res) throw new Error(`성분 목록을 불러오지 못했습니다: ${res.error.code}`);
-  const dict = res.data;
-  const params = parseParams(sp, new Map(dict.map((i) => [i.id, i])));
+  return res.data;
+}
+
+// 결과 표와 함량 범위 단위(Filters)가 같은 응답을 쓴다. 한 요청 안에서 한 번만 부른다
+const getExplore = cache((query: string) => api<ProductExploreResponse>(`/api/products/explore?${query}`));
+
+function exploreQuery(p: Params) {
+  const q = toQuery(p);
+  q.set("size", String(PAGE_SIZE));
+  return String(q);
+}
+
+async function ExploreContent({ searchParams }: { searchParams: PageProps<"/explore">["searchParams"] }) {
+  // searchParams를 먼저 기다린다. 사전 조회가 빌드 때(prerender) 백엔드를 부르지 않게
+  const sp = await searchParams;
+  const dict = await getIngredients();
+  const byId = new Map(dict.map((i) => [i.id, i]));
+  const params = parseParams(sp, byId);
+  const href = exploreHref(params);
 
   return (
     <>
@@ -66,39 +87,20 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
       {params.ingredients.length === 0 ? (
         <Start dict={dict} />
       ) : (
-        // key가 바뀌면 새 경계라 조건·정렬·페이지가 바뀔 때 이전 결과 대신 "불러오는 중"을 보여준다
-        <Suspense key={exploreHref(params)} fallback={<Loading />}>
-          <Explore params={params} dict={dict} />
-        </Suspense>
+        <>
+          {/* 필터는 결과를 기다리지 않고 바로 보인다. 입력칸이 기본값을 쓰므로 조건이 바뀌면 key로 새로 그린다 */}
+          <Filters key={href} params={params} dict={dict} byId={byId} />
+          <div className="mt-8 flex flex-wrap items-start gap-8">
+            <section className="min-w-0 flex-[999_1_560px]">
+              {/* key가 바뀌면 새 경계라 조건·정렬·페이지가 바뀔 때 이전 결과 대신 "불러오는 중"을 보여준다 */}
+              <Suspense key={href} fallback={<Loading />}>
+                <Results params={params} />
+              </Suspense>
+            </section>
+            <Guide />
+          </div>
+        </>
       )}
-    </>
-  );
-}
-
-async function Explore({ params, dict }: { params: Params; dict: IngredientItem[] }) {
-  const query = toQuery(params);
-  query.set("size", String(PAGE_SIZE));
-  const res = await api<ProductExploreResponse>(`/api/products/explore?${query}`);
-  const data = "error" in res ? null : res.data;
-
-  // 함량 범위 단위. defaultUnit이 없으면 단위가 섞이지 않은 성분이라 기준값 단위나 결과의 단위와 같다
-  const base = dict.find((i) => i.id === baseOf(params))!;
-  const unit =
-    base.defaultUnit ??
-    base.referenceUnit ??
-    data?.items.flatMap((it) => it.amounts.find((a) => a.ingredientId === base.id)?.values ?? []).find((v) => v.dailyUnit)
-      ?.dailyUnit ??
-    null;
-
-  return (
-    <>
-      <Filters params={params} dict={dict} base={base} unit={unit} />
-      <div className="mt-8 flex flex-wrap items-start gap-8">
-        <section className="min-w-0 flex-[999_1_560px]">
-          {data ? <Results params={params} data={data} /> : <ExploreError params={params} error={"error" in res ? res.error : null} />}
-        </section>
-        <Guide />
-      </div>
     </>
   );
 }
@@ -131,8 +133,11 @@ function Start({ dict }: { dict: IngredientItem[] }) {
 
 // 조건은 모두 URL에 둔다. GET 폼이라 제출하면 /explore?ingredient=..&form=.. 로 이동만 한다(클라이언트 코드 없음).
 // 고른 성분·제외 성분은 hidden으로 다시 보내고, 고른 select 값이 뒤에 붙어 추가된다(빈 값은 parseParams가 버린다)
-function Filters({ params, dict, base, unit }: { params: Params; dict: IngredientItem[]; base: IngredientItem; unit: string | null }) {
-  const byId = new Map(dict.map((i) => [i.id, i]));
+function Filters({ params, dict, byId }: { params: Params; dict: IngredientItem[]; byId: Map<number, IngredientItem> }) {
+  const base = byId.get(baseOf(params))!;
+  // 함량 범위 단위. defaultUnit이 없는 성분은 단위가 섞이지 않아 기준값 단위와 같다(백엔드 데이터로 확인, 2026-11-11).
+  // 기준값도 없는 성분(mg·CFU 등)은 결과의 단위를 쓴다
+  const unit = base.defaultUnit ?? base.referenceUnit;
   const used = new Set([...params.ingredients, ...params.exclude]);
   const rest = dict.filter((i) => !used.has(i.id));
   const noReference = params.ingredients.map((id) => byId.get(id)!).filter((i) => i.referenceAmount === null);
@@ -189,7 +194,13 @@ function Filters({ params, dict, base, unit }: { params: Params; dict: Ingredien
           ~
         </span>
         <AmountInput name="max" label="최대" defaultValue={params.max} />
-        {unit && <span className="text-sm text-ink-muted">{unit}</span>}
+        {unit ? (
+          <span className="text-sm text-ink-muted">{unit}</span>
+        ) : (
+          <Suspense fallback={null}>
+            <ResultUnit params={params} baseId={base.id} />
+          </Suspense>
+        )}
       </FilterRow>
 
       <FilterRow label="기준 충족">
@@ -218,7 +229,20 @@ function Filters({ params, dict, base, unit }: { params: Params; dict: Ingredien
   );
 }
 
-function Results({ params, data }: { params: Params; data: ProductExploreResponse }) {
+// 기준값이 없는 기준 성분의 단위. 결과 표와 같은 응답(getExplore)에서 찾는다
+async function ResultUnit({ params, baseId }: { params: Params; baseId: number }) {
+  const res = await getExplore(exploreQuery(params));
+  if ("error" in res) return null;
+  const unit = res.data.items
+    .flatMap((it) => it.amounts.find((a) => a.ingredientId === baseId)?.values ?? [])
+    .find((v) => v.dailyUnit)?.dailyUnit;
+  return unit ? <span className="text-sm text-ink-muted">{unit}</span> : null;
+}
+
+async function Results({ params }: { params: Params }) {
+  const res = await getExplore(exploreQuery(params));
+  if ("error" in res) return <ExploreError params={params} error={res.error} />;
+  const data = res.data;
   const lastPage = Math.min(Math.ceil(data.totalCount / PAGE_SIZE) - 1, MAX_PAGE);
   const sorts = [
     ...data.ingredients.map((ing, i) => ({ value: i === 0 ? "" : `amount:${ing.id}`, label: `${ing.name} 함량순` })),
@@ -268,8 +292,7 @@ function Results({ params, data }: { params: Params; data: ProductExploreRespons
 
 // 넓은 표는 가로 스크롤 상자에 넣고 제품명 열을 고정한다(DESIGN.md 6.2)
 function ProductTable({ params, data }: { params: Params; data: ProductExploreResponse }) {
-  const ingById = new Map(data.ingredients.map((i) => [i.id, i]));
-  const base = ingById.get(data.baseIngredientId)!;
+  const base = data.ingredients.find((i) => i.id === data.baseIngredientId)!;
   // 막대는 기준 성분만, 이 페이지의 최댓값 대비(DESIGN.md 7.1)
   const barMax = Math.max(
     0,
@@ -316,12 +339,13 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                   </div>
                 </div>
               </th>
-              {item.amounts.map((a) => (
-                <td key={a.ingredientId} className="px-4 py-4 align-top">
+              {/* 열 순서는 머리(data.ingredients)를 따른다. 응답 amounts 순서가 달라도 셀이 옆 열로 밀리지 않게 id로 찾는다 */}
+              {data.ingredients.map((ing) => (
+                <td key={ing.id} className="px-4 py-4 align-top">
                   <AmountCell
-                    values={a.values}
-                    ing={ingById.get(a.ingredientId)!}
-                    barMax={a.ingredientId === base.id && barMax > 0 ? barMax : null}
+                    values={item.amounts.find((a) => a.ingredientId === ing.id)?.values ?? []}
+                    ing={ing}
+                    barMax={ing.id === base.id && barMax > 0 ? barMax : null}
                   />
                 </td>
               ))}
@@ -376,7 +400,7 @@ function AmountStatus({ v, ing }: { v: CompareAmount; ing: ExploreIngredient }) 
   // 오류 의심 값은 %(예: 948%)를 보이면 초과 섭취를 단정하는 모양이 돼 "검수 대기"만 둔다
   if (v.exceedsUpperLimit) return <ReviewBadge />;
   if (v.dailyAmount === null) return null;
-  if (ing.defaultUnit !== null && v.dailyUnit !== ing.defaultUnit) return <OtherUnitBadge />;
+  if (isOtherUnit(v, ing)) return <OtherUnitBadge />;
   if (v.referencePercent !== null) {
     return (
       <span className="text-sm font-bold whitespace-nowrap tabular-nums text-ink-soft">
@@ -389,10 +413,10 @@ function AmountStatus({ v, ing }: { v: CompareAmount; ing: ExploreIngredient }) 
 }
 
 // 4xx는 백엔드 문구를 그대로(ErrorCode.message는 사용자에게 보여도 되는 문장만). 5xx는 api()가 던져 error.tsx로
-function ExploreError({ params, error }: { params: Params; error: ErrorBody | null }) {
+function ExploreError({ params, error }: { params: Params; error: ErrorBody }) {
   return (
     <div role="alert" className="mt-10 text-center text-ink-muted">
-      <p>{error?.details?.[0]?.reason ?? error?.message}</p>
+      <p>{error.details?.[0]?.reason ?? error.message}</p>
       <Link
         href={exploreHref({ ...params, exclude: [], forms: [], min: "", max: "", meetsReference: false, sort: "", page: 0 })}
         className="mt-3 inline-block font-bold text-brand-700"
@@ -514,13 +538,23 @@ function Loading() {
 // 막대로 견줄 값. 1일 함량을 모르거나, 오류 의심이거나, 주 단위가 아닌 값은 막대 없이 숫자만(DESIGN.md 7.1)
 function barValue(v: CompareAmount, ing: ExploreIngredient) {
   if (v.dailyAmount === null || v.exceedsUpperLimit) return null;
-  if (ing.defaultUnit !== null && v.dailyUnit !== ing.defaultUnit) return null;
+  if (isOtherUnit(v, ing)) return null;
   return v.dailyAmount;
+}
+
+// 주 단위(defaultUnit)와 다르게 적힌 값(엽산 mg·DFE 등). 막대·기준치로 견주지 않는다(DESIGN.md 7.3.1)
+function isOtherUnit(v: CompareAmount, ing: ExploreIngredient) {
+  return ing.defaultUnit !== null && v.dailyUnit !== ing.defaultUnit;
 }
 
 // 함량순·함량 범위가 걸린 성분
 function baseOf(p: Params) {
-  return p.sort.startsWith("amount:") ? Number(p.sort.slice("amount:".length)) : p.ingredients[0];
+  return sortIdOf(p.sort) ?? p.ingredients[0];
+}
+
+// "amount:{id}"의 id. 다른 정렬이면 null
+function sortIdOf(sort: string) {
+  return sort.startsWith("amount:") ? Number(sort.slice("amount:".length)) : null;
 }
 
 function parseParams(sp: Record<string, string | string[] | undefined>, byId: Map<number, IngredientItem>): Params {
@@ -529,12 +563,15 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
   // 없는 성분·중복·빈 값(고르지 않은 select)은 버린다
   const ids = (v: string | string[] | undefined) =>
     [...new Set(all(v).filter((s) => /^\d{1,18}$/.test(s)).map(Number))].filter((id) => byId.has(id)).slice(0, MAX_IDS);
-  // 백엔드 BigDecimal이 읽는 평범한 소수만. 그 밖의 값은 조건 없음
-  const amount = (v: string | string[] | undefined) => (/^\d+(\.\d+)?$/.test(one(v).trim()) ? one(v).trim() : "");
+  // type=number 입력이 보내는 0 이상 숫자(".5", "1e3" 포함, 백엔드 BigDecimal이 그대로 읽음). 그 밖의 값은 조건 없음
+  const amount = (v: string | string[] | undefined) => {
+    const s = one(v).trim();
+    return /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(s) ? s : "";
+  };
 
   const ingredients = ids(sp.ingredient);
   const sortRaw = one(sp.sort);
-  const sortId = sortRaw.startsWith("amount:") ? Number(sortRaw.slice("amount:".length)) : NaN;
+  const sortId = sortIdOf(sortRaw);
   const page = Number.parseInt(one(sp.page), 10);
   return {
     ingredients,
@@ -545,7 +582,7 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
     // 기준값이 없는 성분이 섞이면 백엔드가 거절한다. 그 성분을 방금 추가한 경우라 조용히 끈다(체크박스도 꺼져 보인다)
     meetsReference: one(sp.meetsReference) === "true" && ingredients.every((id) => byId.get(id)!.referenceAmount !== null),
     // 첫 성분 함량순은 기본값("")으로 맞춘다. 고르지 않은 성분 기준이면 기본값
-    sort: sortRaw === "latest" ? "latest" : ingredients.indexOf(sortId) > 0 ? sortRaw : "",
+    sort: sortRaw === "latest" ? "latest" : sortId !== null && ingredients.indexOf(sortId) > 0 ? sortRaw : "",
     page: Number.isInteger(page) && page >= 0 ? Math.min(page, MAX_PAGE) : 0,
   };
 }
@@ -553,7 +590,9 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
 // 조건을 바꾸는 링크. 첫 페이지로 돌아가고, 기준 성분이 바뀌면 함량 범위(그 성분의 값·단위)를 비운다
 function nextHref(p: Params, change: Partial<Params>) {
   const n: Params = { ...p, page: 0, ...change };
-  const sortId = n.sort.startsWith("amount:") ? Number(n.sort.slice("amount:".length)) : null;
+  // 마지막 성분을 빼면 처음 화면이다. 거기서는 다른 조건이 보이지 않아 남기지 않는다
+  if (n.ingredients.length === 0) return "/explore";
+  const sortId = sortIdOf(n.sort);
   if (sortId !== null && n.ingredients.indexOf(sortId) <= 0) n.sort = "";
   if (baseOf(n) !== baseOf(p)) {
     n.min = "";
