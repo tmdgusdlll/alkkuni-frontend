@@ -142,3 +142,33 @@ export type ProductExploreResponse = {
   baseIngredientId: number;
   items: ProductExploreItem[];
 };
+
+// GET /api/products/compare?ids= (product/ProductCompareResponse.kt)
+export type CompareProduct = {
+  id: number;
+  name: string;
+  // 위탁생산 제조사. 브랜드가 아니다(한 브랜드 제품의 제조사가 10곳 넘기도 함)
+  manufacturer: string | null;
+  form: string | null;
+  basisCheck: BasisCheck | null;
+  parseStatus: ParseStatus;
+};
+
+export type CompareIngredient = {
+  // 사전에 없는 성분은 null이고 name은 원문 이름
+  ingredientId: number | null;
+  name: string;
+  referenceAmount: number | null;
+  referenceUnit: string | null;
+  // 주 단위. 값의 dailyUnit이 다르면 "다른 단위 표기"
+  defaultUnit: string | null;
+  // products와 같은 순서. 제품에 없는 성분은 빈 목록, 같은 성분 행이 여러 개면 합치지 않는다
+  values: CompareAmount[][];
+};
+
+export type ProductCompareResponse = {
+  // 요청한 ids 순서
+  products: CompareProduct[];
+  // 여러 제품에 든 성분이 먼저 온다
+  ingredients: CompareIngredient[];
+};

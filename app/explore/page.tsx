@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cacheLife } from "next/cache";
-import { cache, Suspense } from "react";
+import { Suspense } from "react";
 import { AmountCell, barValue } from "@/components/AmountCell";
 import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { Pagination } from "@/components/Pagination";
+import { ComparePanel } from "./ComparePanel";
 import { api } from "@/lib/api";
-import type { ErrorBody, IngredientItem, ProductExploreResponse } from "@/types/api";
+import { productMeta } from "@/lib/format";
+import type { ErrorBody, IngredientItem, ProductExploreResponse, ProductSearchResponse } from "@/types/api";
 
 export const metadata: Metadata = { title: "성분별 제품 목록 - 알꾼이" };
 
-const PAGE_SIZE = 20;
+// 아래 비교 칸이 보이게 짧게 둔다(DESIGN.md 8.2)
+const PAGE_SIZE = 10;
 // 백엔드 page 상한(ProductController MAX_PAGE)
 const MAX_PAGE = 500;
 // 고른 성분·제외 성분 각각의 상한(ProductExploreService MAX_IDS)
 const MAX_IDS = 5;
+// 비교 칸에 담을 수 있는 제품 수(ProductCompareService MAX_PRODUCTS)
+const MAX_COMPARE = 3;
+// 표 위 제품 검색 결과 수
+const SEARCH_SIZE = 5;
 // 제형 필터 후보. 제품 수가 많은 순이고 "기타"는 뺐다
 const FORMS = ["정", "캡슐", "분말", "액상", "젤리", "환", "과립", "겔", "바", "시럽"];
 // 처음 화면의 빠른 선택. id는 환경마다 다를 수 있어 이름으로 찾는다
@@ -31,6 +38,27 @@ type Params = {
   // API 값 그대로: ""(첫 성분 함량순), "amount:{id}"(다른 고른 성분 함량순), "latest"
   sort: string;
   page: number;
+  // 비교 칸에 담은 제품 id(담은 순서). URL은 ids=12,34
+  ids: number[];
+  // 표 위 제품 검색어(목록 밖 제품을 담을 때). 비었으면 ""
+  q: string;
+  // 4개째를 담으려 했으면 true. 앞 3개만 쓰고 안내 문구를 보여준다(다음 링크부터는 3개만 넘어가 사라짐)
+  overflow: boolean;
+};
+
+// 성분을 고르지 않은 처음 화면의 조건
+const EMPTY: Params = {
+  ingredients: [],
+  exclude: [],
+  forms: [],
+  min: "",
+  max: "",
+  meetsReference: false,
+  sort: "",
+  page: 0,
+  ids: [],
+  q: "",
+  overflow: false,
 };
 
 // DESIGN.md 8.2. searchParams는 요청 때만 알 수 있어 Suspense 안에서 읽는다(cacheComponents)
@@ -54,8 +82,21 @@ async function getIngredients() {
   return res.data;
 }
 
-// 결과 표와 함량 범위 단위(Filters)가 같은 응답을 쓴다. 한 요청 안에서 한 번만 부른다
-const getExplore = cache((query: string) => api<ProductExploreResponse>(`/api/products/explore?${query}`));
+// 결과 표와 함량 범위 단위(Filters)가 같은 응답을 쓴다. 담기·빼기는 페이지 전체를 서버에서 다시 그려
+// 목록 조건이 같아도 다시 부르게 되므로, 같은 조건은 몇 분간 서버 캐시를 쓴다(데이터는 하루 한 번 바뀜).
+// 4xx 응답도 캐시되지만 같은 입력이면 같은 답이다. 5xx·타임아웃은 던져서 캐시에 남지 않는다
+async function getExplore(query: string) {
+  "use cache";
+  cacheLife("minutes");
+  return api<ProductExploreResponse>(`/api/products/explore?${query}`);
+}
+
+// 표 위 제품 검색. 담기·빼기 때 다시 부르지 않게 위와 같이 캐시한다
+async function searchProducts(q: string) {
+  "use cache";
+  cacheLife("minutes");
+  return api<ProductSearchResponse>(`/api/products?${new URLSearchParams({ q, size: String(SEARCH_SIZE) })}`);
+}
 
 function exploreQuery(p: Params) {
   const q = toQuery(p);
@@ -69,7 +110,8 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
   const dict = await getIngredients();
   const byId = new Map(dict.map((i) => [i.id, i]));
   const params = parseParams(sp, byId);
-  const href = exploreHref(params);
+  // 목록 조건만의 key. 담은 제품(ids)·검색어만 바뀌면 목록·필터에 "불러오는 중"을 다시 띄우지 않는다(API는 getExplore 캐시)
+  const listKey = String(toQuery(params));
 
   return (
     <>
@@ -84,15 +126,21 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
       <p className="mt-1 text-ink-muted">고른 성분이 모두 든 제품을 1일 함량 순서로 보여줘요.</p>
 
       {params.ingredients.length === 0 ? (
-        <Start dict={dict} />
+        <>
+          <Start dict={dict} params={params} />
+          <div className="mt-8">
+            <ProductSearch params={params} />
+          </div>
+        </>
       ) : (
         <>
           {/* 필터는 결과를 기다리지 않고 바로 보인다. 입력칸이 기본값을 쓰므로 조건이 바뀌면 key로 새로 그린다 */}
-          <Filters key={href} params={params} dict={dict} byId={byId} />
+          <Filters key={listKey} params={params} dict={dict} byId={byId} />
           <div className="mt-8 flex flex-wrap items-start gap-8">
             <section className="min-w-0 flex-[999_1_560px]">
+              <ProductSearch params={params} />
               {/* key가 바뀌면 새 경계라 조건·정렬·페이지가 바뀔 때 이전 결과 대신 "불러오는 중"을 보여준다 */}
-              <Suspense key={href} fallback={<Loading />}>
+              <Suspense key={listKey} fallback={<Loading />}>
                 <Results params={params} />
               </Suspense>
             </section>
@@ -100,12 +148,34 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
           </div>
         </>
       )}
+
+      <ComparePanel ids={params.ids} href={(ids) => compareHref(params, ids)} />
+      {params.overflow && <OverflowNotice params={params} />}
     </>
   );
 }
 
+// 4개째를 담으려 할 때. 목록 중간에서 눌러도 보이게 화면 아래에 띄운다(스크롤을 지키는 링크라서).
+// 클라이언트 코드 없이 닫기는 안내 없는 주소로 이동한다
+function OverflowNotice({ params }: { params: Params }) {
+  return (
+    <div
+      role="alert"
+      className="fixed inset-x-4 bottom-4 z-20 mx-auto flex max-w-xl flex-wrap items-center gap-x-4 gap-y-2 rounded-card bg-ink px-5 py-3.5 text-sm text-white shadow-card"
+    >
+      <p className="flex-1 basis-60">3개까지만 비교할 수 있어요. 하나를 빼고 추가해 주세요.</p>
+      <a href="#compare" className="font-bold text-white underline">
+        비교 칸 보기
+      </a>
+      <Link href={exploreHref(params)} scroll={false} className="text-white/80 hover:text-white">
+        닫기
+      </Link>
+    </div>
+  );
+}
+
 // 성분을 아직 고르지 않은 처음 화면
-function Start({ dict }: { dict: IngredientItem[] }) {
+function Start({ dict, params }: { dict: IngredientItem[]; params: Params }) {
   const popular = POPULAR.flatMap((name) => dict.filter((i) => i.name === name));
   return (
     <section className="mt-8 rounded-hero bg-brand-50 px-6 py-12 text-center">
@@ -114,7 +184,7 @@ function Start({ dict }: { dict: IngredientItem[] }) {
         {popular.map((i) => (
           <li key={i.id}>
             <Link
-              href={`/explore?ingredient=${i.id}`}
+              href={exploreHref({ ...params, ingredients: [i.id] })}
               className="inline-flex h-9 items-center rounded-full border border-brand-200 bg-white px-4 text-sm font-bold text-ink-soft hover:border-brand-500 hover:text-brand-700"
             >
               {i.name}
@@ -124,6 +194,8 @@ function Start({ dict }: { dict: IngredientItem[] }) {
       </ul>
       <form action="/explore" className="mt-6 inline-flex flex-wrap justify-center gap-2">
         <IngredientSelect name="ingredient" label="다른 성분 고르기" options={dict} required />
+        <IdsInput ids={params.ids} />
+        <QInput q={params.q} />
         <SubmitButton>보기</SubmitButton>
       </form>
     </section>
@@ -140,6 +212,10 @@ function Filters({ params, dict, byId }: { params: Params; dict: IngredientItem[
   const used = new Set([...params.ingredients, ...params.exclude]);
   const rest = dict.filter((i) => !used.has(i.id));
   const noReference = params.ingredients.map((id) => byId.get(id)!).filter((i) => i.referenceAmount === null);
+  // 접힌 필터에 걸린 조건 수(제외 성분·제형·함량 범위·기준 충족)
+  const active = [params.exclude.length > 0, params.forms.length > 0, params.min || params.max, params.meetsReference].filter(
+    Boolean,
+  ).length;
 
   return (
     <form action="/explore" className="mt-6 flex flex-col gap-4 rounded-panel border border-line bg-white p-5 shadow-card">
@@ -158,69 +234,84 @@ function Filters({ params, dict, byId }: { params: Params; dict: IngredientItem[
         {params.ingredients.length < MAX_IDS && <IngredientSelect name="ingredient" label="+ 성분 추가" options={rest} />}
       </FilterRow>
 
-      <FilterRow label="제외 성분">
-        {params.exclude.map((id) => (
-          <Chip
-            key={id}
-            label={byId.get(id)!.name}
-            action="제외 해제"
-            tone="neutral"
-            href={nextHref(params, { exclude: params.exclude.filter((x) => x !== id) })}
-          />
-        ))}
-        {params.exclude.map((id) => (
-          <input key={id} type="hidden" name="exclude" value={id} />
-        ))}
-        {params.exclude.length < MAX_IDS && <IngredientSelect name="exclude" label="+ 제외할 성분" options={rest} />}
-      </FilterRow>
+      {/* 성분 칩만 두고 나머지 조건은 접어 둔다(DESIGN.md 8.2). 걸린 조건 수를 머리에 적어 접혀 있어도 알 수 있게 한다 */}
+      {/* 조건이 걸려 있으면 펼친다. 적용한 조건이 바로 보이고, 잘못된 입력이 접힌 채 제출을 막지 않게 */}
+      <details className="group" open={active > 0}>
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-ink-soft hover:text-ink [&::-webkit-details-marker]:hidden">
+          <span aria-hidden="true" className="transition-transform group-open:rotate-90">
+            ›
+          </span>
+          필터 더 보기
+          {active > 0 && <span className="text-brand-700">({active}개 적용 중)</span>}
+        </summary>
+        <div className="mt-4 flex flex-col gap-4">
+          <FilterRow label="제외 성분">
+            {params.exclude.map((id) => (
+              <Chip
+                key={id}
+                label={byId.get(id)!.name}
+                action="제외 해제"
+                tone="neutral"
+                href={nextHref(params, { exclude: params.exclude.filter((x) => x !== id) })}
+              />
+            ))}
+            {params.exclude.map((id) => (
+              <input key={id} type="hidden" name="exclude" value={id} />
+            ))}
+            {params.exclude.length < MAX_IDS && <IngredientSelect name="exclude" label="+ 제외할 성분" options={rest} />}
+          </FilterRow>
 
-      <FilterRow label="제형">
-        {FORMS.map((f) => (
-          <label
-            key={f}
-            className="inline-flex h-9 cursor-pointer items-center rounded-full border border-line px-3.5 text-sm text-ink-soft has-checked:border-brand-700 has-checked:bg-brand-700 has-checked:font-bold has-checked:text-white has-focus-visible:outline-2 has-focus-visible:outline-brand-700"
-          >
-            <input type="checkbox" name="form" value={f} defaultChecked={params.forms.includes(f)} className="sr-only" />
-            {f}
-          </label>
-        ))}
-      </FilterRow>
+          <FilterRow label="제형">
+            {FORMS.map((f) => (
+              <label
+                key={f}
+                className="inline-flex h-9 cursor-pointer items-center rounded-full border border-line px-3.5 text-sm text-ink-soft has-checked:border-brand-700 has-checked:bg-brand-700 has-checked:font-bold has-checked:text-white has-focus-visible:outline-2 has-focus-visible:outline-brand-700"
+              >
+                <input type="checkbox" name="form" value={f} defaultChecked={params.forms.includes(f)} className="sr-only" />
+                {f}
+              </label>
+            ))}
+          </FilterRow>
 
-      {/* 함량 범위는 기준 성분 하나에만 걸린다(백엔드 baseIngredientId) */}
-      <FilterRow label={`${base.name} 1일 함량`}>
-        <AmountInput name="min" label="최소" defaultValue={params.min} />
-        <span aria-hidden="true" className="text-ink-muted">
-          ~
-        </span>
-        <AmountInput name="max" label="최대" defaultValue={params.max} />
-        {unit ? (
-          <span className="text-sm text-ink-muted">{unit}</span>
-        ) : (
-          <Suspense fallback={null}>
-            <ResultUnit params={params} baseId={base.id} />
-          </Suspense>
-        )}
-      </FilterRow>
+          {/* 함량 범위는 기준 성분 하나에만 걸린다(백엔드 baseIngredientId) */}
+          <FilterRow label={`${base.name} 1일 함량`}>
+            <AmountInput name="min" label="최소" defaultValue={params.min} />
+            <span aria-hidden="true" className="text-ink-muted">
+              ~
+            </span>
+            <AmountInput name="max" label="최대" defaultValue={params.max} />
+            {unit ? (
+              <span className="text-sm text-ink-muted">{unit}</span>
+            ) : (
+              <Suspense fallback={null}>
+                <ResultUnit params={params} baseId={base.id} />
+              </Suspense>
+            )}
+          </FilterRow>
 
-      <FilterRow label="기준 충족">
-        <label className={`inline-flex items-center gap-2 text-sm ${noReference.length ? "text-ink-muted" : "text-ink-soft"}`}>
-          <input
-            type="checkbox"
-            name="meetsReference"
-            value="true"
-            defaultChecked={params.meetsReference}
-            disabled={noReference.length > 0}
-            className="size-4 accent-brand-700"
-          />
-          고른 성분 모두 1일 기준치 이상
-        </label>
-        {/* 기준값이 없는 성분을 고르면 확인할 수 없는 성분까지 "충족"으로 보이게 되어 끈다(DESIGN.md 8.2) */}
-        {noReference.length > 0 && (
-          <span className="text-xs text-ink-muted">{noReference.map((i) => i.name).join(", ")}에는 기준치가 없어요</span>
-        )}
-      </FilterRow>
+          <FilterRow label="기준 충족">
+            <label className={`inline-flex items-center gap-2 text-sm ${noReference.length ? "text-ink-muted" : "text-ink-soft"}`}>
+              <input
+                type="checkbox"
+                name="meetsReference"
+                value="true"
+                defaultChecked={params.meetsReference}
+                disabled={noReference.length > 0}
+                className="size-4 accent-brand-700"
+              />
+              고른 성분 모두 1일 기준치 이상
+            </label>
+            {/* 기준값이 없는 성분을 고르면 확인할 수 없는 성분까지 "충족"으로 보이게 되어 끈다(DESIGN.md 8.2) */}
+            {noReference.length > 0 && (
+              <span className="text-xs text-ink-muted">{noReference.map((i) => i.name).join(", ")}에는 기준치가 없어요</span>
+            )}
+          </FilterRow>
+        </div>
+      </details>
 
       {params.sort && <input type="hidden" name="sort" value={params.sort} />}
+      <IdsInput ids={params.ids} />
+      <QInput q={params.q} />
       <div>
         <SubmitButton>조건 적용</SubmitButton>
       </div>
@@ -330,11 +421,12 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                     <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
                       {item.name}
                     </Link>
-                    <p className="mt-0.5 text-xs text-ink-muted">{[item.manufacturer, item.form].filter(Boolean).join(" · ")}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">{productMeta(item)}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <BasisBadge basisCheck={item.basisCheck} explain={false} />
                       {item.parseStatus === "NEEDS_REVIEW" && <ReviewBadge />}
                     </div>
+                    <AddButton params={params} id={item.id} />
                   </div>
                 </div>
               </th>
@@ -353,6 +445,110 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
         </tbody>
       </table>
     </div>
+  );
+}
+
+// 표 위 제품 검색(DESIGN.md 8.2). 목록에 원하는 제품이 없을 때 이름으로 찾아 담는다.
+// 검색 응답에는 성분별 함량이 없어 순위 표에 섞지 않고 짧은 목록(5개)으로 따로 보여준다
+function ProductSearch({ params }: { params: Params }) {
+  const keep = toQuery(params);
+  return (
+    <div className="mb-6">
+      {/* 입력칸이 기본값을 쓰므로 "검색 닫기" 등으로 검색어가 바뀌면 key로 새로 그린다 */}
+      <form key={`form:${params.q}`} action="/explore" role="search" className="flex h-11 items-center gap-2 rounded-full border border-line bg-white pr-1.5 pl-4">
+        <label htmlFor="compare-q" className="sr-only">
+          비교에 담을 제품 검색
+        </label>
+        <input
+          id="compare-q"
+          name="q"
+          type="search"
+          defaultValue={params.q}
+          required
+          // 백엔드 최소·최대 길이(검색 API)와 맞춘다
+          minLength={2}
+          maxLength={100}
+          placeholder="목록에 없는 제품은 이름으로 찾아 담아요"
+          className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-muted"
+        />
+        {/* 목록 조건과 담은 제품을 그대로 둔다 */}
+        {[...keep].map(([k, v], i) => (
+          <input key={i} type="hidden" name={k} value={v} />
+        ))}
+        <IdsInput ids={params.ids} />
+        <button type="submit" className="h-8 shrink-0 rounded-full bg-brand-700 px-4 text-sm font-bold text-white hover:bg-brand-800">
+          찾기
+        </button>
+      </form>
+      {params.q && (
+        <Suspense key={params.q} fallback={<p className="mt-3 text-sm text-ink-muted">찾는 중…</p>}>
+          <ProductSearchResults params={params} />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
+async function ProductSearchResults({ params }: { params: Params }) {
+  const res = await searchProducts(params.q);
+  const close = (
+    <Link href={exploreHref({ ...params, q: "" })} scroll={false} className="text-sm text-ink-muted hover:text-ink">
+      검색 닫기
+    </Link>
+  );
+  // 4xx(너무 짧은 검색어 등)는 백엔드 문구
+  if ("error" in res) {
+    return (
+      <p role="alert" className="mt-3 flex flex-wrap justify-between gap-2 text-sm text-ink-muted">
+        {res.error.details?.[0]?.reason ?? res.error.message} {close}
+      </p>
+    );
+  }
+  const { items, totalCount } = res.data;
+  return (
+    <div className="mt-3 rounded-card border border-line bg-white px-4 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-soft py-2.5 text-sm text-ink-muted">
+        <span>
+          &lsquo;{params.q}&rsquo; 제품 {totalCount.toLocaleString("ko-KR")}개
+          {totalCount > SEARCH_SIZE && ` 중 ${SEARCH_SIZE}개. 더 정확한 이름으로 찾아 보세요`}
+        </span>
+        {close}
+      </div>
+      {items.length === 0 ? (
+        <p className="py-6 text-center text-sm text-ink-muted">찾는 제품이 없어요.</p>
+      ) : (
+        <ul>
+          {items.map((item) => (
+            <li key={item.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line-soft py-3 last:border-b-0">
+              <div className="min-w-0 flex-1 basis-56">
+                <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
+                  {item.name}
+                </Link>
+                <p className="mt-0.5 text-xs text-ink-muted">{productMeta(item)}</p>
+              </div>
+              <AddButton params={params} id={item.id} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// "비교에 추가" 링크. 3개가 찼어도 링크는 두고, 4개째는 parseParams가 받지 않고 안내한다(DESIGN.md 8.3).
+// 스크롤을 지켜 목록에서 연달아 담을 수 있게 한다
+function AddButton({ params, id }: { params: Params; id: number }) {
+  if (params.ids.includes(id)) {
+    return <span className="mt-2 inline-flex h-8 items-center text-sm font-bold text-ink-muted">✓ 담김</span>;
+  }
+  return (
+    <Link
+      href={compareHref(params, [...params.ids, id])}
+      scroll={false}
+      className="mt-2 inline-flex h-8 items-center rounded-full border border-brand-500 px-3 text-sm font-bold text-brand-700 hover:bg-brand-50"
+    >
+      + 비교에 추가
+    </Link>
   );
 }
 
@@ -475,6 +671,16 @@ function SubmitButton({ children }: { children: React.ReactNode }) {
   );
 }
 
+// GET 폼이 담은 제품을 잃지 않게 다시 보낸다
+function IdsInput({ ids }: { ids: number[] }) {
+  return ids.length ? <input type="hidden" name="ids" value={ids.join(",")} /> : null;
+}
+
+// 검색어도 같은 이유로 다시 보낸다
+function QInput({ q }: { q: string }) {
+  return q ? <input type="hidden" name="q" value={q} /> : null;
+}
+
 function Loading() {
   return <p className="mt-10 text-center text-ink-muted">불러오는 중…</p>;
 }
@@ -494,7 +700,7 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
   const one = (v: string | string[] | undefined) => all(v)[0] ?? "";
   // 없는 성분·중복·빈 값(고르지 않은 select)은 버린다
   const ids = (v: string | string[] | undefined) =>
-    [...new Set(all(v).filter((s) => /^\d{1,18}$/.test(s)).map(Number))].filter((id) => byId.has(id)).slice(0, MAX_IDS);
+    [...new Set(all(v).filter((s) => /^\d{1,15}$/.test(s)).map(Number))].filter((id) => byId.has(id)).slice(0, MAX_IDS);
   // type=number 입력이 보내는 0 이상 숫자(".5", "1e3" 포함, 백엔드 BigDecimal이 그대로 읽음). 그 밖의 값은 조건 없음
   const amount = (v: string | string[] | undefined) => {
     const s = one(v).trim();
@@ -502,6 +708,25 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
   };
 
   const ingredients = ids(sp.ingredient);
+  const compareIds = [
+    ...new Set(
+      all(sp.ids)
+        .flatMap((s) => s.split(","))
+        .filter((s) => /^\d{1,15}$/.test(s))
+        .map(Number),
+    ),
+  ];
+  // ids=12,34 (같은 이름이 여러 번 와도 이어 붙인다). 숫자 아닌 값·중복은 버린다. 없는 제품은 비교 칸이 백엔드 문구로 알려준다.
+  // id는 15자리까지만(Number가 2^53을 넘으면 다른 수로 바뀜)
+  const keep = {
+    ids: compareIds.slice(0, MAX_COMPARE),
+    overflow: compareIds.length > MAX_COMPARE,
+    // 백엔드 최대 길이(100자)를 넘으면 자른다. 너무 짧은 검색어는 백엔드 문구로 알려준다
+    q: one(sp.q).trim().slice(0, 100),
+  };
+  // 성분을 고르지 않은 처음 화면에서는 목록 조건(page·form 등)이 보이지 않으니 버린다. 성분을 고를 때 그대로 따라가지 않게
+  if (ingredients.length === 0) return { ...EMPTY, ...keep };
+
   const sortRaw = one(sp.sort);
   const sortId = sortIdOf(sortRaw);
   const page = Number.parseInt(one(sp.page), 10);
@@ -516,6 +741,7 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
     // 첫 성분 함량순은 기본값("")으로 맞춘다. 고르지 않은 성분 기준이면 기본값
     sort: sortRaw === "latest" ? "latest" : sortId !== null && ingredients.indexOf(sortId) > 0 ? sortRaw : "",
     page: Number.isInteger(page) && page >= 0 ? Math.min(page, MAX_PAGE) : 0,
+    ...keep,
   };
 }
 
@@ -523,7 +749,7 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
 function nextHref(p: Params, change: Partial<Params>) {
   const n: Params = { ...p, page: 0, ...change };
   // 마지막 성분을 빼면 처음 화면이다. 거기서는 다른 조건이 보이지 않아 남기지 않는다
-  if (n.ingredients.length === 0) return "/explore";
+  if (n.ingredients.length === 0) return exploreHref({ ...EMPTY, ids: p.ids, q: p.q });
   const sortId = sortIdOf(n.sort);
   if (sortId !== null && n.ingredients.indexOf(sortId) <= 0) n.sort = "";
   if (baseOf(n) !== baseOf(p)) {
@@ -533,12 +759,21 @@ function nextHref(p: Params, change: Partial<Params>) {
   return exploreHref(n);
 }
 
+// 화면 주소. 목록 조건(toQuery)에 담은 제품을 더한다. ids는 쉼표가 %2C로 바뀌지 않게 직접 붙인다
 function exploreHref(p: Params) {
-  const q = toQuery(p);
-  return q.size ? `/explore?${q}` : "/explore";
+  const q = String(toQuery(p));
+  const ids = p.ids.length ? `ids=${p.ids.join(",")}` : "";
+  const search = p.q ? String(new URLSearchParams({ q: p.q })) : "";
+  const query = [q, search, ids].filter(Boolean).join("&");
+  return query ? `/explore?${query}` : "/explore";
 }
 
-// URL과 API가 같은 이름을 쓴다(ProductController.explore)
+// 담은 제품을 바꾸는 링크("비교에 추가"·"빼기"). 목록 조건·페이지는 그대로 둔다
+function compareHref(p: Params, ids: number[]) {
+  return exploreHref({ ...p, ids });
+}
+
+// 목록 API 조건. URL과 API가 같은 이름을 쓴다(ProductController.explore)
 function toQuery(p: Params) {
   const sp = new URLSearchParams();
   p.ingredients.forEach((id) => sp.append("ingredient", String(id)));
