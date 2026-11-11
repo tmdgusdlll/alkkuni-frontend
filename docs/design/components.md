@@ -119,8 +119,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 |---|---|---|
 | `/` | 메인 | `Main.dc.html` |
 | `/search?q=&sort=` | 검색 결과 | (미작성) |
-| `/explore?ingredient=&...` | 성분별 제품 목록 | `Compare.dc.html` 위쪽 표 |
-| `/compare?ids=` | 제품 비교 | `Compare.dc.html` 아래 "여러 성분 나란히 보기" |
+| `/explore?ingredient=&...&ids=` | 성분별 제품 목록 + 담은 제품 비교 | `Compare.dc.html` (위쪽 표 + 아래 "여러 성분 나란히 보기") |
 | `/products/[id]` | 제품 상세 | `Detail.dc.html` |
 | `/my/drawer` | 내 서랍 | `Drawer.dc.html` |
 | `/my/notifications` | 알림 설정 | (미작성) |
