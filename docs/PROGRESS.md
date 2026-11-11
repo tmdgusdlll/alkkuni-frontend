@@ -30,21 +30,25 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 - [ ] **제품 비교** `/compare?ids=` (`GET /api/products/compare`)
 - [ ] 메인 `/` (검색 히어로. 인기 성분 비교는 백엔드 API가 생기면)
 - [ ] 배포
-  - [x] CI: PR·main 푸시마다 린트·빌드(`.github/workflows/ci.yml`), main 브랜치 보호
+  - [x] CI: PR·main 푸시마다 린트·빌드(`.github/workflows/ci.yml`), main 브랜치 보호 (PR #5)
   - [ ] CD: Dockerfile, ECR 푸시, EC2 `WEB_TAG` 교체. 운영 compose·Nginx(백엔드 레포)가 생긴 뒤
 - [ ] 로그인 이후: 로그인, 내 서랍, 알림 설정
 
 ## 다음 할 일
 
-### 제품 비교 `/compare?ids=`
+### 제품 비교 `/compare?ids=` (브랜치 `feat/compare`, 2026-11-11 계획)
 
-- 목록 표에서 2~3개를 고르는 "비교하기"(DESIGN.md 8.2 5번)와 상세의 "비교에 추가"(8.4)를 이 PR에서 단다. 고르기는 상태가 필요해 클라이언트 컴포넌트 또는 체크박스 GET 폼(`ids=`) 중 정한다.
-- 함량 칸(1일 함량·원문 값·"+"로 잇는 여러 행·검수 대기·다른 단위 표기)이 `/explore`의 `AmountCell`·`AmountStatus`와 같다(둘 다 `CompareAmount`). 이때 `components/`로 옮긴다.
+API `GET /api/products/compare?ids=1,2,3`(백엔드 `ProductCompareService`): 서로 다른 제품 2~3개, 아니면 400(`ids` "서로 다른 제품 2~3개를 골라 주세요."). 없는 제품은 `PRODUCT_NOT_FOUND`. 응답은 `products`(요청 순서) + `ingredients` 행(여러 제품에 든 성분이 먼저, `values[제품 순서]`가 `CompareAmount[]`, 없으면 빈 목록 → "—").
+
+1. 비교 표: 제품 2~3개 열 × 성분 행(DESIGN.md 8.3). 넓은 표는 가로 스크롤 + 성분명 열 고정(6.2). "가장 많은 값 강조"는 제품마다 그 성분 행이 하나이고 `dailyUnit`이 모두 같을 때만.
+2. 함량 칸 공용화: `/explore`의 `AmountCell`·`AmountStatus`·`barValue`를 `components/`로 옮겨 같이 쓴다(둘 다 `CompareAmount`). **비교 응답의 성분 행에는 `defaultUnit`이 없다**(`ProductCompareResponse.CompareIngredient`: id·name·referenceAmount·referenceUnit만). 그래서 `isOtherUnit`(주 단위와 다른지)을 그대로 쓸 수 없다. 공용 컴포넌트는 `defaultUnit`을 선택 값으로 받고, 없으면 상세 화면 규칙("기준값은 있는데 %가 null이면 다른 단위 표기")으로 판정한다. 백엔드 응답에 `defaultUnit`을 더하는 게 나은지도 이때 본다(백엔드 PR).
+3. 비교에 담기: (A) 추천, 정하고 시작한다.
+   - (A) `/explore` 표에 체크박스를 두고 GET 폼(`/compare?ids=`)으로 보낸다. 클라이언트 코드가 없다. 2~3개 검사는 폼에서 막지 못하니 백엔드 400 문구를 비교 화면에 그대로 보여준다.
+   - 상세의 "비교에 추가"(8.4)는 `/compare?ids={이 제품}` 링크로 시작하고, 비교 화면에서 제품을 더 고르는 방식(검색해서 추가)으로 한다. 정하지 않음.
+   - (B) 여러 화면을 오가며 담는 "비교함"(localStorage, 클라이언트 컴포넌트)은 (A)로 부족할 때.
+4. 검증: 로컬 데이터(2개·3개, 성분 수가 다른 제품, 멀티팩, 다른 단위, 검수 대기, 없는 id·1개·4개·중복 id), 390px, CI 통과, `/code-review`, PROGRESS 갱신.
+
 - 없는 제품은 화면만 "제품을 찾을 수 없어요"이고 HTTP 상태는 200이다(상세). 검색 엔진에 상세를 노출할 때(배포 뒤) 404 상태가 필요하면 다시 본다.
-
-### CI 마무리
-
-- 이 PR(`chore/ci`)에서 `build` 검사가 한 번 통과한 뒤 머지하고, `main` 브랜치 보호를 백엔드와 같게 건다: PR 필수(승인 0명), 필수 상태 검사 `build`(strict 끔), 대화 해결 필수, 관리자에게도 적용, 강제 푸시·삭제 금지. 보호를 CI보다 먼저 걸면 `build` 검사가 오지 않아 어떤 PR도 머지할 수 없다.
 
 ### 백엔드에 걸린 것
 
@@ -52,6 +56,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ## 완료
 
+- 2026-11-11 CI·main 브랜치 보호 (PR #5)
 - 2026-11-11 성분별 제품 목록 `/explore` (PR #4)
 - 2026-11-11 제품 상세 `/products/[id]` (PR #3)
 - 2026-11-11 검색 화면 `/search` (PR #2)
@@ -61,6 +66,11 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ### 2026-11-11
 
+- `main` 브랜치 보호 (PR #5 머지 뒤 `gh api`로 설정)
+  - 백엔드 설정을 그대로 옮기지 않고 혼자 쓰는 레포에 필요한 것만 걸었다. 건 것: PR 필수(승인 0명, 직접 푸시는 CI를 건너뜀), 필수 상태 검사 `build`(GitHub Actions), 관리자에게도 적용(레포 주인이 유일한 사용자라 없으면 규칙이 본인에게 안 걸림). 강제 푸시·삭제 금지는 보호를 걸면 기본값.
+  - 뺀 것: strict(최신 main 반영 필수, 혼자라 PR이 겹칠 일이 드물고 매번 브랜치 갱신 수고만 늚), 대화 해결 필수(리뷰를 로컬 `/code-review`로 하고 PR 코멘트를 쓰지 않음). 백엔드는 둘 다 켜져 있다.
+  - 급히 우회할 때는 Settings → Branches에서 "관리자에게도 적용"만 잠깐 끈다. job 이름 `build`를 바꾸면 보호의 필수 검사도 같이 바꾼다.
+  - gh 토큰에 `workflow` 권한이 있어야 `.github/workflows/`를 푸시할 수 있다(`gh auth refresh -h github.com -s workflow`, 브라우저 승인).
 - CI (`chore/ci`)
   - 지금까지 PR #1~#4는 로컬 린트·빌드만 믿고 머지했다. 백엔드 `ci.yml`과 같은 형식(PR·main 푸시, `contents: read`, 같은 브랜치 실행 취소, 체크아웃 토큰 미보관)으로 `npm ci` → `npm run lint` → `npm run build`. 타입 검사는 `next build`가 한다.
   - 백엔드 없이 돈다. API 호출이 모두 `searchParams`·`params`를 읽은 뒤라 prerender 때 실행되지 않는다(백엔드를 끄고 `next build` 통과 확인). 새 화면도 이 순서를 지켜야 CI가 깨지지 않는다.
