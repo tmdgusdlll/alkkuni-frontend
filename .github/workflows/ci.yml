@@ -1,0 +1,36 @@
+# PR과 main 푸시마다 린트·빌드(타입 검사 포함)를 돌린다. 배포(CD)는 백엔드 운영 compose·Nginx가 생긴 뒤 deploy.yml로 따로 둔다.
+# job 이름 build는 main 브랜치 보호의 필수 상태 검사 이름이다(백엔드와 같음). 바꾸면 보호 설정도 같이 바꾼다.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# 같은 브랜치에 새 커밋이 오면 이전 실행은 취소한다.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # 빌드만 하므로 토큰을 .git/config에 남기지 않는다.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      # 백엔드 없이 통과한다. API 호출은 searchParams·params를 읽은 뒤라 prerender 때 실행되지 않는다(2026-11-11 확인)
+      - run: npm run build
