@@ -5,7 +5,7 @@ import { FormIcon } from "@/components/FormIcon";
 import { Pagination } from "@/components/Pagination";
 import { SearchBar } from "@/components/SearchBar";
 import { api } from "@/lib/api";
-import { formatAmount, formatDate } from "@/lib/format";
+import { formatAmount, productMeta } from "@/lib/format";
 import type { ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
 
 const PAGE_SIZE = 20;
@@ -144,9 +144,7 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
             {item.name}
           </Link>
           <p className="mt-0.5 text-sm text-ink-muted">
-            {[item.manufacturer && `제조사 ${item.manufacturer}`, item.form, item.reportedOn && `${formatDate(item.reportedOn)} 신고`]
-              .filter(Boolean)
-              .join(" · ")}
+            {productMeta(item)}
           </p>
         </div>
       </div>

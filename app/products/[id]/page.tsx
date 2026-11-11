@@ -88,9 +88,10 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
             <InfoTile label="섭취 방법" value={p.intakeMethod} wide />
             <InfoTile label="신고번호" value={p.reportNo} wide />
           </dl>
-          {/* 상세에는 담은 목록이 없어 이 제품을 담은 채로 비교 화면을 연다(DESIGN.md 8.4) */}
+          {/* 상세에는 담은 목록이 없어 이 제품을 담은 채로 비교 화면을 연다(DESIGN.md 8.4).
+              #compare는 쓰지 않는다. /explore가 스트리밍이라 이동 때 비교 칸이 아직 없어 해시 스크롤이 안 된다 */}
           <Link
-            href={`/explore?ids=${p.id}#compare`}
+            href={`/explore?ids=${p.id}`}
             className="mt-5 flex h-12 items-center justify-center rounded-full bg-brand-700 font-bold text-white hover:bg-brand-800 hover:text-white"
           >
             비교하러 가기

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AmountCell, barValue } from "@/components/AmountCell";
 import { BasisBadge, ReviewBadge } from "@/components/badges";
 import { api } from "@/lib/api";
+import { productMeta } from "@/lib/format";
 import type { CompareIngredient, CompareProduct, ProductCompareResponse, ProductDetailResponse } from "@/types/api";
 
 // 담은 제품 순서대로 A/B/C 색(DESIGN.md 2.3)
@@ -73,16 +74,21 @@ async function One({ id, href }: { id: number; href: Props["href"] }) {
 
 async function Table({ ids, href }: { ids: number[]; href: Props["href"] }) {
   const res = await api<ProductCompareResponse>(`/api/products/compare?ids=${ids.join(",")}`);
-  // 4xx는 백엔드 문구(없는 제품 등). 5xx는 api()가 던져 error.tsx로
+  // 4xx는 백엔드 문구(없는 제품 등). 어느 제품인지는 문구에만 있어, 정상 제품을 남길 수 있게 하나씩 빼는 링크를 둔다.
+  // 5xx는 api()가 던져 error.tsx로
   if ("error" in res) {
     return (
-      <div role="alert">
-        <Empty>
-          {res.error.details?.[0]?.reason ?? res.error.message}{" "}
-          <Link href={href([])} scroll={false} className="font-bold text-brand-700">
-            비교 칸 비우기
-          </Link>
-        </Empty>
+      <div role="alert" className="mt-4 rounded-card border border-dashed border-line px-4 py-8 text-center text-ink-muted">
+        <p>{res.error.details?.[0]?.reason ?? res.error.message}</p>
+        <ul className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
+          {ids.map((id) => (
+            <li key={id}>
+              <Link href={href(ids.filter((x) => x !== id))} scroll={false} className="font-bold text-brand-700">
+                제품 {id} 빼기
+              </Link>
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }
@@ -151,7 +157,7 @@ function ProductHead({ p, index, remove }: { p: CompareProduct; index: number; r
         {p.name}
       </Link>
       <p className="mt-0.5 text-xs text-ink-muted">
-        {[p.manufacturer && `제조사 ${p.manufacturer}`, p.form].filter(Boolean).join(" · ")}
+        {productMeta(p)}
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         <BasisBadge basisCheck={p.basisCheck} explain={false} />

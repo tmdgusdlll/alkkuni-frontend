@@ -7,3 +7,10 @@ export function formatAmount(n: number) {
 export function formatDate(iso: string) {
   return iso.replaceAll("-", ".");
 }
+
+// 제품 부가정보 한 줄: "제조사 OO · 정 · 2026.10.23 신고". 제조사는 위탁생산 회사라 브랜드처럼 보이지 않게 "제조사"를 붙인다(DESIGN.md 9)
+export function productMeta(p: { manufacturer: string | null; form: string | null; reportedOn?: string | null }) {
+  return [p.manufacturer && `제조사 ${p.manufacturer}`, p.form, p.reportedOn && `${formatDate(p.reportedOn)} 신고`]
+    .filter(Boolean)
+    .join(" · ");
+}

@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cacheLife } from "next/cache";
-import { cache, Suspense } from "react";
+import { Suspense } from "react";
 import { AmountCell, barValue } from "@/components/AmountCell";
 import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { Pagination } from "@/components/Pagination";
 import { ComparePanel } from "./ComparePanel";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/format";
+import { productMeta } from "@/lib/format";
 import type { ErrorBody, IngredientItem, ProductExploreResponse, ProductSearchResponse } from "@/types/api";
 
 export const metadata: Metadata = { title: "성분별 제품 목록 - 알꾼이" };
@@ -20,6 +20,8 @@ const MAX_PAGE = 500;
 const MAX_IDS = 5;
 // 비교 칸에 담을 수 있는 제품 수(ProductCompareService MAX_PRODUCTS)
 const MAX_COMPARE = 3;
+// 표 위 제품 검색 결과 수
+const SEARCH_SIZE = 5;
 // 제형 필터 후보. 제품 수가 많은 순이고 "기타"는 뺐다
 const FORMS = ["정", "캡슐", "분말", "액상", "젤리", "환", "과립", "겔", "바", "시럽"];
 // 처음 화면의 빠른 선택. id는 환경마다 다를 수 있어 이름으로 찾는다
@@ -80,8 +82,21 @@ async function getIngredients() {
   return res.data;
 }
 
-// 결과 표와 함량 범위 단위(Filters)가 같은 응답을 쓴다. 한 요청 안에서 한 번만 부른다
-const getExplore = cache((query: string) => api<ProductExploreResponse>(`/api/products/explore?${query}`));
+// 결과 표와 함량 범위 단위(Filters)가 같은 응답을 쓴다. 담기·빼기는 페이지 전체를 서버에서 다시 그려
+// 목록 조건이 같아도 다시 부르게 되므로, 같은 조건은 몇 분간 서버 캐시를 쓴다(데이터는 하루 한 번 바뀜).
+// 4xx 응답도 캐시되지만 같은 입력이면 같은 답이다. 5xx·타임아웃은 던져서 캐시에 남지 않는다
+async function getExplore(query: string) {
+  "use cache";
+  cacheLife("minutes");
+  return api<ProductExploreResponse>(`/api/products/explore?${query}`);
+}
+
+// 표 위 제품 검색. 담기·빼기 때 다시 부르지 않게 위와 같이 캐시한다
+async function searchProducts(q: string) {
+  "use cache";
+  cacheLife("minutes");
+  return api<ProductSearchResponse>(`/api/products?${new URLSearchParams({ q, size: String(SEARCH_SIZE) })}`);
+}
 
 function exploreQuery(p: Params) {
   const q = toQuery(p);
@@ -95,7 +110,7 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
   const dict = await getIngredients();
   const byId = new Map(dict.map((i) => [i.id, i]));
   const params = parseParams(sp, byId);
-  // 목록 조건만의 key. 담은 제품(ids)만 바뀌면 목록·필터를 다시 불러오지 않는다
+  // 목록 조건만의 key. 담은 제품(ids)·검색어만 바뀌면 목록·필터에 "불러오는 중"을 다시 띄우지 않는다(API는 getExplore 캐시)
   const listKey = String(toQuery(params));
 
   return (
@@ -220,7 +235,8 @@ function Filters({ params, dict, byId }: { params: Params; dict: IngredientItem[
       </FilterRow>
 
       {/* 성분 칩만 두고 나머지 조건은 접어 둔다(DESIGN.md 8.2). 걸린 조건 수를 머리에 적어 접혀 있어도 알 수 있게 한다 */}
-      <details className="group">
+      {/* 조건이 걸려 있으면 펼친다. 적용한 조건이 바로 보이고, 잘못된 입력이 접힌 채 제출을 막지 않게 */}
+      <details className="group" open={active > 0}>
         <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold text-ink-soft hover:text-ink [&::-webkit-details-marker]:hidden">
           <span aria-hidden="true" className="transition-transform group-open:rotate-90">
             ›
@@ -405,9 +421,7 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                     <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
                       {item.name}
                     </Link>
-                    <p className="mt-0.5 text-xs text-ink-muted">
-                      {[item.manufacturer && `제조사 ${item.manufacturer}`, item.form].filter(Boolean).join(" · ")}
-                    </p>
+                    <p className="mt-0.5 text-xs text-ink-muted">{productMeta(item)}</p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <BasisBadge basisCheck={item.basisCheck} explain={false} />
                       {item.parseStatus === "NEEDS_REVIEW" && <ReviewBadge />}
@@ -475,10 +489,8 @@ function ProductSearch({ params }: { params: Params }) {
   );
 }
 
-const SEARCH_SIZE = 5;
-
 async function ProductSearchResults({ params }: { params: Params }) {
-  const res = await api<ProductSearchResponse>(`/api/products?${new URLSearchParams({ q: params.q, size: String(SEARCH_SIZE) })}`);
+  const res = await searchProducts(params.q);
   const close = (
     <Link href={exploreHref({ ...params, q: "" })} scroll={false} className="text-sm text-ink-muted hover:text-ink">
       검색 닫기
@@ -512,11 +524,7 @@ async function ProductSearchResults({ params }: { params: Params }) {
                 <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
                   {item.name}
                 </Link>
-                <p className="mt-0.5 text-xs text-ink-muted">
-                  {[item.manufacturer && `제조사 ${item.manufacturer}`, item.form, item.reportedOn && `${formatDate(item.reportedOn)} 신고`]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
+                <p className="mt-0.5 text-xs text-ink-muted">{productMeta(item)}</p>
               </div>
               <AddButton params={params} id={item.id} />
             </li>
@@ -692,7 +700,7 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
   const one = (v: string | string[] | undefined) => all(v)[0] ?? "";
   // 없는 성분·중복·빈 값(고르지 않은 select)은 버린다
   const ids = (v: string | string[] | undefined) =>
-    [...new Set(all(v).filter((s) => /^\d{1,18}$/.test(s)).map(Number))].filter((id) => byId.has(id)).slice(0, MAX_IDS);
+    [...new Set(all(v).filter((s) => /^\d{1,15}$/.test(s)).map(Number))].filter((id) => byId.has(id)).slice(0, MAX_IDS);
   // type=number 입력이 보내는 0 이상 숫자(".5", "1e3" 포함, 백엔드 BigDecimal이 그대로 읽음). 그 밖의 값은 조건 없음
   const amount = (v: string | string[] | undefined) => {
     const s = one(v).trim();
@@ -700,15 +708,25 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
   };
 
   const ingredients = ids(sp.ingredient);
-  // ids=12,34 (같은 이름이 여러 번 와도 이어 붙인다). 숫자 아닌 값·중복은 버린다. 없는 제품은 비교 칸이 백엔드 문구로 알려준다
   const compareIds = [
     ...new Set(
       all(sp.ids)
         .flatMap((s) => s.split(","))
-        .filter((s) => /^\d{1,18}$/.test(s))
+        .filter((s) => /^\d{1,15}$/.test(s))
         .map(Number),
     ),
   ];
+  // ids=12,34 (같은 이름이 여러 번 와도 이어 붙인다). 숫자 아닌 값·중복은 버린다. 없는 제품은 비교 칸이 백엔드 문구로 알려준다.
+  // id는 15자리까지만(Number가 2^53을 넘으면 다른 수로 바뀜)
+  const keep = {
+    ids: compareIds.slice(0, MAX_COMPARE),
+    overflow: compareIds.length > MAX_COMPARE,
+    // 백엔드 최대 길이(100자)를 넘으면 자른다. 너무 짧은 검색어는 백엔드 문구로 알려준다
+    q: one(sp.q).trim().slice(0, 100),
+  };
+  // 성분을 고르지 않은 처음 화면에서는 목록 조건(page·form 등)이 보이지 않으니 버린다. 성분을 고를 때 그대로 따라가지 않게
+  if (ingredients.length === 0) return { ...EMPTY, ...keep };
+
   const sortRaw = one(sp.sort);
   const sortId = sortIdOf(sortRaw);
   const page = Number.parseInt(one(sp.page), 10);
@@ -723,10 +741,7 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
     // 첫 성분 함량순은 기본값("")으로 맞춘다. 고르지 않은 성분 기준이면 기본값
     sort: sortRaw === "latest" ? "latest" : sortId !== null && ingredients.indexOf(sortId) > 0 ? sortRaw : "",
     page: Number.isInteger(page) && page >= 0 ? Math.min(page, MAX_PAGE) : 0,
-    ids: compareIds.slice(0, MAX_COMPARE),
-    // 백엔드 최대 길이(100자)를 넘으면 자른다. 너무 짧은 검색어는 백엔드 문구로 알려준다
-    q: one(sp.q).trim().slice(0, 100),
-    overflow: compareIds.length > MAX_COMPARE,
+    ...keep,
   };
 }
 
