@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { Suspense } from "react";
-import { AmountCell, barValue } from "@/components/AmountCell";
+import { AmountCell, barMaxOf } from "@/components/AmountCell";
 import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { Pagination } from "@/components/Pagination";
 import { ComparePanel } from "./ComparePanel";
 import { api } from "@/lib/api";
+import { getExplore, getIngredients } from "@/lib/queries";
 import { productMeta } from "@/lib/format";
 import type { ErrorBody, IngredientItem, ProductExploreResponse, ProductSearchResponse } from "@/types/api";
 
@@ -70,25 +71,6 @@ export default function ExplorePage(props: PageProps<"/explore">) {
       </Suspense>
     </main>
   );
-}
-
-// 성분 사전(215개)은 Flyway로만 바뀌어 서버 메모리에 캐시한다. 조건이 바뀔 때마다 앞에 왕복이 붙지 않게
-async function getIngredients() {
-  "use cache";
-  cacheLife("hours");
-  const res = await api<IngredientItem[]>("/api/ingredients");
-  // 입력 없이 부르는 API라 4xx가 오면 사용자가 고칠 수 없다. error.tsx로 보낸다(던지면 캐시에 남지 않음)
-  if ("error" in res) throw new Error(`성분 목록을 불러오지 못했습니다: ${res.error.code}`);
-  return res.data;
-}
-
-// 결과 표와 함량 범위 단위(Filters)가 같은 응답을 쓴다. 담기·빼기는 페이지 전체를 서버에서 다시 그려
-// 목록 조건이 같아도 다시 부르게 되므로, 같은 조건은 몇 분간 서버 캐시를 쓴다(데이터는 하루 한 번 바뀜).
-// 4xx 응답도 캐시되지만 같은 입력이면 같은 답이다. 5xx·타임아웃은 던져서 캐시에 남지 않는다
-async function getExplore(query: string) {
-  "use cache";
-  cacheLife("minutes");
-  return api<ProductExploreResponse>(`/api/products/explore?${query}`);
 }
 
 // 표 위 제품 검색. 담기·빼기 때 다시 부르지 않게 위와 같이 캐시한다
@@ -384,11 +366,9 @@ async function Results({ params }: { params: Params }) {
 function ProductTable({ params, data }: { params: Params; data: ProductExploreResponse }) {
   const base = data.ingredients.find((i) => i.id === data.baseIngredientId)!;
   // 막대는 기준 성분만, 이 페이지의 최댓값 대비(DESIGN.md 7.1)
-  const barMax = Math.max(
-    0,
-    ...data.items.flatMap((it) =>
-      (it.amounts.find((a) => a.ingredientId === base.id)?.values ?? []).map((v) => barValue(v, base) ?? 0),
-    ),
+  const barMax = barMaxOf(
+    data.items.map((it) => it.amounts.find((a) => a.ingredientId === base.id)?.values ?? []),
+    base,
   );
 
   return (
@@ -436,7 +416,7 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                   <AmountCell
                     values={item.amounts.find((a) => a.ingredientId === ing.id)?.values ?? []}
                     ing={ing}
-                    barMax={ing.id === base.id && barMax > 0 ? barMax : null}
+                    barMax={ing.id === base.id ? barMax : null}
                   />
                 </td>
               ))}

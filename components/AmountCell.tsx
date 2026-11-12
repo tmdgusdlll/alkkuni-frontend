@@ -68,6 +68,12 @@ export function barValue(v: CompareAmount, ing: UnitRule) {
   return v.dailyAmount;
 }
 
+// 막대 기준값: 여러 제품의 한 성분 값 중 막대로 견줄 수 있는 값의 최댓값(DESIGN.md 7.1). 견줄 값이 없으면 null
+export function barMaxOf(valuesList: CompareAmount[][], ing: UnitRule) {
+  const max = Math.max(0, ...valuesList.flat().map((v) => barValue(v, ing) ?? 0));
+  return max > 0 ? max : null;
+}
+
 // 주 단위(defaultUnit)와 다르게 적힌 값(엽산 mg·DFE 등). 막대·기준치로 견주지 않는다(DESIGN.md 7.3.1)
 function isOtherUnit(v: CompareAmount, ing: UnitRule) {
   return ing.defaultUnit !== null && v.dailyUnit !== ing.defaultUnit;
