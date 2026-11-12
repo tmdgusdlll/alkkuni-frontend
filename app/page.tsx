@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { AmountCell, barValue } from "@/components/AmountCell";
-import { ReviewBadge } from "@/components/badges";
+import { AmountCell, barMaxOf } from "@/components/AmountCell";
+import { BasisBadge, ReviewBadge } from "@/components/badges";
 import { SearchBar } from "@/components/SearchBar";
 import { productMeta } from "@/lib/format";
 import { getExplore, getIngredients } from "@/lib/queries";
@@ -44,11 +44,16 @@ async function PopularCards() {
   let dict: IngredientItem[];
   try {
     dict = await getIngredients();
-  } catch {
-    // 메인 전체를 에러 화면으로 바꾸지 않는다. 검색 히어로는 그대로 쓸 수 있게
+  } catch (e) {
+    // 메인 전체를 에러 화면으로 바꾸지 않는다(검색 히어로는 그대로 쓸 수 있게). 장애를 알 수 있게 서버 로그는 남긴다
+    console.error("메인 인기 성분: 성분 사전을 불러오지 못했습니다", e);
     return <Message>인기 성분을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Message>;
   }
   const ingredients = POPULAR.flatMap((name) => dict.filter((i) => i.name === name));
+  // 사전 이름이 바뀌면 카드가 조용히 빠진다. 알아챌 수 있게 로그를 남긴다
+  const missing = POPULAR.filter((name) => !ingredients.some((i) => i.name === name));
+  if (missing.length > 0) console.error("메인 인기 성분: 사전에 없는 이름", missing);
+  if (ingredients.length === 0) return <Message>인기 성분을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Message>;
 
   return (
     <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -73,19 +78,20 @@ async function TopProducts({ ing }: { ing: IngredientItem }) {
   try {
     // /explore에서 이 성분만 고른 첫 페이지와 같은 쿼리라 "더 보기"를 누르면 서버 캐시를 그대로 쓴다
     res = await getExplore(`ingredient=${ing.id}&size=10`);
-  } catch {
+  } catch (e) {
+    console.error(`메인 인기 성분: ${ing.name} 목록을 불러오지 못했습니다`, e);
     return <p className="mt-4 flex-1 text-sm text-ink-muted">불러오지 못했어요.</p>;
   }
   if ("error" in res) return <p className="mt-4 flex-1 text-sm text-ink-muted">{res.error.message}</p>;
   const items = res.data.items.slice(0, TOP);
   if (items.length === 0) return <p className="mt-4 flex-1 text-sm text-ink-muted">아직 제품이 없어요.</p>;
-  const values = (id: number) => items.find((it) => it.id === id)?.amounts.find((a) => a.ingredientId === ing.id)?.values ?? [];
+  const rows = items.map((item) => ({ item, values: item.amounts.find((a) => a.ingredientId === ing.id)?.values ?? [] }));
   // 막대는 이 카드 3개 중 최댓값 대비. 오류 의심·다른 단위 값은 빼고 센다(DESIGN.md 7.1)
-  const barMax = Math.max(0, ...items.flatMap((it) => values(it.id).map((v) => barValue(v, ing) ?? 0)));
+  const barMax = barMaxOf(rows.map((r) => r.values), ing);
 
   return (
     <ol className="mt-4 flex flex-1 flex-col gap-4">
-      {items.map((item, i) => (
+      {rows.map(({ item, values }, i) => (
         <li key={item.id} className="flex gap-3">
           <span className="w-4 shrink-0 pt-0.5 text-sm font-bold tabular-nums text-ink-muted">{i + 1}</span>
           <div className="min-w-0 flex-1">
@@ -93,13 +99,14 @@ async function TopProducts({ ing }: { ing: IngredientItem }) {
               {item.name}
             </Link>
             <p className="mt-0.5 text-xs text-ink-muted">{productMeta({ manufacturer: item.manufacturer, form: item.form })}</p>
-            {item.parseStatus === "NEEDS_REVIEW" && (
-              <div className="mt-1.5">
-                <ReviewBadge />
-              </div>
-            )}
+            {/* 함량 옆에 항상 표시 기준 배지(DESIGN.md 7.3). 메인에는 배지 범례가 없어 설명을 펼칠 수 있게 둔다(카드는 스크롤 상자가 아니라 잘리지 않음).
+                오류 의심 값은 함량 칸이 "검수 대기"를 달아 겹치지 않게 뺀다 */}
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <BasisBadge basisCheck={item.basisCheck} />
+              {item.parseStatus === "NEEDS_REVIEW" && !values.some((v) => v.exceedsUpperLimit) && <ReviewBadge />}
+            </div>
             <div className="mt-2">
-              <AmountCell values={values(item.id)} ing={ing} barMax={barMax > 0 ? barMax : null} />
+              <AmountCell values={values} ing={ing} barMax={barMax} />
             </div>
           </div>
         </li>

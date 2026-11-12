@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { Suspense } from "react";
-import { AmountCell, barValue } from "@/components/AmountCell";
+import { AmountCell, barMaxOf } from "@/components/AmountCell";
 import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { Pagination } from "@/components/Pagination";
 import { ComparePanel } from "./ComparePanel";
@@ -366,11 +366,9 @@ async function Results({ params }: { params: Params }) {
 function ProductTable({ params, data }: { params: Params; data: ProductExploreResponse }) {
   const base = data.ingredients.find((i) => i.id === data.baseIngredientId)!;
   // 막대는 기준 성분만, 이 페이지의 최댓값 대비(DESIGN.md 7.1)
-  const barMax = Math.max(
-    0,
-    ...data.items.flatMap((it) =>
-      (it.amounts.find((a) => a.ingredientId === base.id)?.values ?? []).map((v) => barValue(v, base) ?? 0),
-    ),
+  const barMax = barMaxOf(
+    data.items.map((it) => it.amounts.find((a) => a.ingredientId === base.id)?.values ?? []),
+    base,
   );
 
   return (
@@ -418,7 +416,7 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                   <AmountCell
                     values={item.amounts.find((a) => a.ingredientId === ing.id)?.values ?? []}
                     ing={ing}
-                    barMax={ing.id === base.id && barMax > 0 ? barMax : null}
+                    barMax={ing.id === base.id ? barMax : null}
                   />
                 </td>
               ))}
