@@ -56,8 +56,13 @@ export function ExportBadge() {
 // 제품명 위 브랜드(DESIGN.md 9). 브랜드는 제품명 앞부분에서 찾은 것이라 이름이 브랜드로 시작하면 같은 말이 겹쳐 뺀다.
 // "ATOMY …"(애터미)처럼 표기가 다를 때만 보인다
 export function BrandLabel({ brand, name }: { brand: BrandRef | null; name: string }) {
-  if (!brand || name.startsWith(brand.name)) return null;
+  if (!brand || nameKey(name).startsWith(nameKey(brand.name))) return null;
   return <p className="text-xs font-bold text-ink-soft">{brand.name}</p>;
+}
+
+// 백엔드 BrandName.nameKey와 같은 규칙: 앞 괄호("[애터미] …")를 지우고 공백을 없애 대문자로("종근당 바이오" = "종근당바이오")
+function nameKey(s: string) {
+  return s.trim().replace(/^[[(<【]\s*/u, "").replace(/\s+/gu, "").toUpperCase();
 }
 
 // 둥근 선 아이콘(DESIGN.md 5). 장식이라 화면 읽기 프로그램에서 숨긴다

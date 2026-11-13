@@ -13,8 +13,12 @@ export type ParseStatus = "PARSED" | "NO_AMOUNT" | "NEEDS_REVIEW" | "REVIEWED";
 // brand/BrandRef.kt: 제품명에서 찾은 브랜드. 대부분(약 88%) 제품은 null이다. 제조사(manufacturer)와 다르다
 export type BrandRef = { id: number; name: string };
 
-// 검색·성분별 목록의 market. 기본 all은 모두 보여주되 수출용을 뒤로 보낸다
-export type ProductMarket = "all" | "domestic" | "export";
+// 제품 응답 4종(검색·상세·성분별 목록·비교)에 공통으로 붙는 필드
+type BrandFields = {
+  brand: BrandRef | null;
+  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
+  exportOnly: boolean;
+};
 
 // GET /api/brands (brand/BrandController.kt). 공개 제품이 있는 브랜드, 국내 제품 수 많은 순
 export type BrandItem = {
@@ -30,13 +34,10 @@ export type ProductSearchSort = "relevance" | "latest" | "amount";
 
 export type MatchedIngredient = { id: number; name: string };
 
-export type ProductSearchItem = {
+export type ProductSearchItem = BrandFields & {
   id: number;
   name: string;
   manufacturer: string | null;
-  brand: BrandRef | null;
-  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
-  exportOnly: boolean;
   form: string | null;
   reportedOn: string | null;
   // matchedIngredient의 1일 함량. 성분 검색이 아니거나 계산할 수 없으면 null
@@ -91,14 +92,11 @@ export type DetailRecall = {
   listStatus: RecallListStatus;
 };
 
-export type ProductDetailResponse = {
+export type ProductDetailResponse = BrandFields & {
   id: number;
   reportNo: string;
   name: string;
   manufacturer: string | null;
-  brand: BrandRef | null;
-  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
-  exportOnly: boolean;
   form: string | null;
   reportedOn: string | null;
   intakeMethod: string | null;
@@ -145,13 +143,10 @@ export type CompareAmount = {
 // GET /api/products/explore (product/ProductExploreResponse.kt)
 export type ExploreIngredient = Pick<IngredientItem, "id" | "name" | "defaultUnit" | "referenceAmount" | "referenceUnit">;
 
-export type ProductExploreItem = {
+export type ProductExploreItem = BrandFields & {
   id: number;
   name: string;
   manufacturer: string | null;
-  brand: BrandRef | null;
-  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
-  exportOnly: boolean;
   form: string | null;
   reportedOn: string | null;
   basisCheck: BasisCheck | null;
@@ -170,14 +165,11 @@ export type ProductExploreResponse = {
 };
 
 // GET /api/products/compare?ids= (product/ProductCompareResponse.kt)
-export type CompareProduct = {
+export type CompareProduct = BrandFields & {
   id: number;
   name: string;
   // 위탁생산 제조사. 브랜드가 아니다(한 브랜드 제품의 제조사가 10곳 넘기도 함)
   manufacturer: string | null;
-  brand: BrandRef | null;
-  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
-  exportOnly: boolean;
   form: string | null;
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;

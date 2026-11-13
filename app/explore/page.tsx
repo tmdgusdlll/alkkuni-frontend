@@ -95,9 +95,9 @@ function exploreQuery(p: Params) {
 async function ExploreContent({ searchParams }: { searchParams: PageProps<"/explore">["searchParams"] }) {
   // searchParams를 먼저 기다린다. 사전 조회가 빌드 때(prerender) 백엔드를 부르지 않게
   const sp = await searchParams;
-  const [dict, brands] = await Promise.all([getIngredients(), getBrands()]);
+  const [dict, brands] = await Promise.all([getIngredients(), loadBrands()]);
   const byId = new Map(dict.map((i) => [i.id, i]));
-  const brandById = new Map(brands.map((b) => [b.id, b]));
+  const brandById = new Map((brands ?? []).map((b) => [b.id, b]));
   const params = parseParams(sp, byId, brandById);
   // 목록 조건만의 key. 담은 제품(ids)·검색어만 바뀌면 목록·필터에 "불러오는 중"을 다시 띄우지 않는다(API는 getExplore 캐시)
   const listKey = String(toQuery(params));
@@ -203,7 +203,8 @@ function Filters({
   params: Params;
   dict: IngredientItem[];
   byId: Map<number, IngredientItem>;
-  brands: BrandItem[];
+  // null이면 브랜드 목록을 못 불러와 브랜드 필터를 숨긴다
+  brands: BrandItem[] | null;
   brandById: Map<number, BrandItem>;
 }) {
   const base = byId.get(baseOf(params))!;
@@ -279,6 +280,7 @@ function Filters({
             ))}
           </FilterRow>
 
+          {brands && (
           <FilterRow label="브랜드">
             {params.brands.map((id) => (
               <Chip
@@ -296,7 +298,8 @@ function Filters({
               <select name="brand" aria-label="+ 브랜드" defaultValue="" className="h-9 w-44 max-w-full rounded-full border border-line bg-white px-3 text-sm text-ink-soft">
                 <option value="">+ 브랜드</option>
                 {brands
-                  .filter((b) => !params.brands.includes(b.id))
+                  // 수출용을 빼면 국내 제품이 없는 브랜드는 결과가 늘 0개라 뺀다
+                  .filter((b) => !params.brands.includes(b.id) && !(params.domestic && b.domesticCount === 0))
                   .map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
@@ -307,6 +310,7 @@ function Filters({
             {/* 브랜드는 제품명에서 찾아 연결된 제품이 일부(약 12%)라 고르면 이름에 브랜드가 없는 제품은 빠진다 */}
             <span className="text-xs text-ink-muted">제품명에 브랜드가 적힌 제품만 골라져요</span>
           </FilterRow>
+          )}
 
           <FilterRow label="수출용">
             <label className="inline-flex items-center gap-2 text-sm text-ink-soft">
@@ -842,4 +846,14 @@ function toQuery(p: Params) {
   if (p.sort) sp.set("sort", p.sort);
   if (p.page > 0) sp.set("page", String(p.page));
   return sp;
+}
+
+// 브랜드는 접힌 필터 하나에만 쓰여 실패해도 목록은 보여준다(URL의 brand도 버려진다)
+async function loadBrands() {
+  try {
+    return await getBrands();
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
 }
