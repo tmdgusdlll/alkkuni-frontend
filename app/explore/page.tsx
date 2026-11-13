@@ -3,13 +3,13 @@ import Link from "next/link";
 import { cacheLife } from "next/cache";
 import { Suspense } from "react";
 import { AmountCell, barMaxOf } from "@/components/AmountCell";
-import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
+import { BasisBadge, BrandLabel, ExportBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { Pagination } from "@/components/Pagination";
 import { ComparePanel } from "./ComparePanel";
 import { api } from "@/lib/api";
-import { getExplore, getIngredients } from "@/lib/queries";
+import { getBrands, getExplore, getIngredients } from "@/lib/queries";
 import { productMeta } from "@/lib/format";
-import type { ErrorBody, IngredientItem, ProductExploreResponse, ProductSearchResponse } from "@/types/api";
+import type { BrandItem, ErrorBody, IngredientItem, ProductExploreResponse, ProductSearchResponse } from "@/types/api";
 
 export const metadata: Metadata = { title: "성분별 제품 목록 - 알꾼이" };
 
@@ -36,6 +36,10 @@ type Params = {
   min: string;
   max: string;
   meetsReference: boolean;
+  // 고른 브랜드(OR). 백엔드는 20개까지 받지만 칩이 넘치지 않게 성분과 같이 5개까지
+  brands: number[];
+  // 수출용 빼기(API market=domestic). 기본(all)은 수출용을 뒤로 보낸다
+  domestic: boolean;
   // API 값 그대로: ""(첫 성분 함량순), "amount:{id}"(다른 고른 성분 함량순), "latest"
   sort: string;
   page: number;
@@ -55,6 +59,8 @@ const EMPTY: Params = {
   min: "",
   max: "",
   meetsReference: false,
+  brands: [],
+  domestic: false,
   sort: "",
   page: 0,
   ids: [],
@@ -89,9 +95,10 @@ function exploreQuery(p: Params) {
 async function ExploreContent({ searchParams }: { searchParams: PageProps<"/explore">["searchParams"] }) {
   // searchParams를 먼저 기다린다. 사전 조회가 빌드 때(prerender) 백엔드를 부르지 않게
   const sp = await searchParams;
-  const dict = await getIngredients();
+  const [dict, brands] = await Promise.all([getIngredients(), loadBrands()]);
   const byId = new Map(dict.map((i) => [i.id, i]));
-  const params = parseParams(sp, byId);
+  const brandById = new Map((brands ?? []).map((b) => [b.id, b]));
+  const params = parseParams(sp, byId, brandById);
   // 목록 조건만의 key. 담은 제품(ids)·검색어만 바뀌면 목록·필터에 "불러오는 중"을 다시 띄우지 않는다(API는 getExplore 캐시)
   const listKey = String(toQuery(params));
 
@@ -117,7 +124,7 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
       ) : (
         <>
           {/* 필터는 결과를 기다리지 않고 바로 보인다. 입력칸이 기본값을 쓰므로 조건이 바뀌면 key로 새로 그린다 */}
-          <Filters key={listKey} params={params} dict={dict} byId={byId} />
+          <Filters key={listKey} params={params} dict={dict} byId={byId} brands={brands} brandById={brandById} />
           <div className="mt-8 flex flex-wrap items-start gap-8">
             <section className="min-w-0 flex-[999_1_560px]">
               <ProductSearch params={params} />
@@ -186,7 +193,20 @@ function Start({ dict, params }: { dict: IngredientItem[]; params: Params }) {
 
 // 조건은 모두 URL에 둔다. GET 폼이라 제출하면 /explore?ingredient=..&form=.. 로 이동만 한다(클라이언트 코드 없음).
 // 고른 성분·제외 성분은 hidden으로 다시 보내고, 고른 select 값이 뒤에 붙어 추가된다(빈 값은 parseParams가 버린다)
-function Filters({ params, dict, byId }: { params: Params; dict: IngredientItem[]; byId: Map<number, IngredientItem> }) {
+function Filters({
+  params,
+  dict,
+  byId,
+  brands,
+  brandById,
+}: {
+  params: Params;
+  dict: IngredientItem[];
+  byId: Map<number, IngredientItem>;
+  // null이면 브랜드 목록을 못 불러와 브랜드 필터를 숨긴다
+  brands: BrandItem[] | null;
+  brandById: Map<number, BrandItem>;
+}) {
   const base = byId.get(baseOf(params))!;
   // 함량 범위 단위. defaultUnit이 없는 성분은 단위가 섞이지 않아 기준값 단위와 같다(백엔드 데이터로 확인, 2026-11-11).
   // 기준값도 없는 성분(mg·CFU 등)은 결과의 단위를 쓴다
@@ -194,10 +214,15 @@ function Filters({ params, dict, byId }: { params: Params; dict: IngredientItem[
   const used = new Set([...params.ingredients, ...params.exclude]);
   const rest = dict.filter((i) => !used.has(i.id));
   const noReference = params.ingredients.map((id) => byId.get(id)!).filter((i) => i.referenceAmount === null);
-  // 접힌 필터에 걸린 조건 수(제외 성분·제형·함량 범위·기준 충족)
-  const active = [params.exclude.length > 0, params.forms.length > 0, params.min || params.max, params.meetsReference].filter(
-    Boolean,
-  ).length;
+  // 접힌 필터에 걸린 조건 수(제외 성분·제형·브랜드·수출용·함량 범위·기준 충족)
+  const active = [
+    params.exclude.length > 0,
+    params.forms.length > 0,
+    params.brands.length > 0,
+    params.domestic,
+    params.min || params.max,
+    params.meetsReference,
+  ].filter(Boolean).length;
 
   return (
     <form action="/explore" className="mt-6 flex flex-col gap-4 rounded-panel border border-line bg-white p-5 shadow-card">
@@ -253,6 +278,46 @@ function Filters({ params, dict, byId }: { params: Params; dict: IngredientItem[
                 {f}
               </label>
             ))}
+          </FilterRow>
+
+          {brands && (
+          <FilterRow label="브랜드">
+            {params.brands.map((id) => (
+              <Chip
+                key={id}
+                label={brandById.get(id)!.name}
+                action="빼기"
+                tone="neutral"
+                href={nextHref(params, { brands: params.brands.filter((x) => x !== id) })}
+              />
+            ))}
+            {params.brands.map((id) => (
+              <input key={id} type="hidden" name="brand" value={id} />
+            ))}
+            {params.brands.length < MAX_IDS && (
+              <select name="brand" aria-label="+ 브랜드" defaultValue="" className="h-9 w-44 max-w-full rounded-full border border-line bg-white px-3 text-sm text-ink-soft">
+                <option value="">+ 브랜드</option>
+                {brands
+                  // 수출용을 빼면 국내 제품이 없는 브랜드는 결과가 늘 0개라 뺀다
+                  .filter((b) => !params.brands.includes(b.id) && !(params.domestic && b.domesticCount === 0))
+                  .map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+              </select>
+            )}
+            {/* 브랜드는 제품명에서 찾아 연결된 제품이 일부(약 12%)라 고르면 이름에 브랜드가 없는 제품은 빠진다 */}
+            <span className="text-xs text-ink-muted">제품명에 브랜드가 적힌 제품만 골라져요</span>
+          </FilterRow>
+          )}
+
+          <FilterRow label="수출용">
+            <label className="inline-flex items-center gap-2 text-sm text-ink-soft">
+              <input type="checkbox" name="market" value="domestic" defaultChecked={params.domestic} className="size-4 accent-brand-700" />
+              수출용 제품 빼기
+            </label>
+            <span className="text-xs text-ink-muted">빼지 않아도 목록 뒤쪽에 놓여요</span>
           </FilterRow>
 
           {/* 함량 범위는 기준 성분 하나에만 걸린다(백엔드 baseIngredientId) */}
@@ -398,6 +463,7 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                     {params.page * PAGE_SIZE + i + 1}
                   </span>
                   <div className="min-w-0">
+                    <BrandLabel brand={item.brand} name={item.name} />
                     <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
                       {item.name}
                     </Link>
@@ -405,6 +471,7 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <BasisBadge basisCheck={item.basisCheck} explain={false} />
                       {item.parseStatus === "NEEDS_REVIEW" && <ReviewBadge />}
+                      {item.exportOnly && <ExportBadge />}
                     </div>
                     <AddButton params={params} id={item.id} />
                   </div>
@@ -501,10 +568,14 @@ async function ProductSearchResults({ params }: { params: Params }) {
           {items.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line-soft py-3 last:border-b-0">
               <div className="min-w-0 flex-1 basis-56">
+                <BrandLabel brand={item.brand} name={item.name} />
                 <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
                   {item.name}
                 </Link>
-                <p className="mt-0.5 text-xs text-ink-muted">{productMeta(item)}</p>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  {productMeta(item)}
+                  {item.exportOnly && " · 수출용"}
+                </p>
               </div>
               <AddButton params={params} id={item.id} />
             </li>
@@ -538,7 +609,7 @@ function ExploreError({ params, error }: { params: Params; error: ErrorBody }) {
     <div role="alert" className="mt-10 text-center text-ink-muted">
       <p>{error.details?.[0]?.reason ?? error.message}</p>
       <Link
-        href={exploreHref({ ...params, exclude: [], forms: [], min: "", max: "", meetsReference: false, sort: "", page: 0 })}
+        href={exploreHref({ ...params, exclude: [], forms: [], brands: [], domestic: false, min: "", max: "", meetsReference: false, sort: "", page: 0 })}
         className="mt-3 inline-block font-bold text-brand-700"
       >
         고른 성분만 남기고 조건 지우기
@@ -568,6 +639,7 @@ function Guide() {
         </Legend>
         <Legend badge={<ReviewBadge />}>값이 이상해 검수를 기다리고 있어요. 원문과 다를 수 있어요.</Legend>
         <Legend badge={<OtherUnitBadge />}>다른 단위로 적혀 있어 기준치·다른 제품과 견주지 않아요.</Legend>
+        <Legend badge={<ExportBadge />}>제품명에 수출용으로 적힌 제품이에요. 국내에서 사기 어려워 뒤쪽에 놓여요.</Legend>
       </dl>
     </aside>
   );
@@ -675,12 +747,16 @@ function sortIdOf(sort: string) {
   return sort.startsWith("amount:") ? Number(sort.slice("amount:".length)) : null;
 }
 
-function parseParams(sp: Record<string, string | string[] | undefined>, byId: Map<number, IngredientItem>): Params {
+function parseParams(
+  sp: Record<string, string | string[] | undefined>,
+  byId: Map<number, IngredientItem>,
+  brandById: Map<number, BrandItem>,
+): Params {
   const all = (v: string | string[] | undefined) => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
   const one = (v: string | string[] | undefined) => all(v)[0] ?? "";
-  // 없는 성분·중복·빈 값(고르지 않은 select)은 버린다
-  const ids = (v: string | string[] | undefined) =>
-    [...new Set(all(v).filter((s) => /^\d{1,15}$/.test(s)).map(Number))].filter((id) => byId.has(id)).slice(0, MAX_IDS);
+  // 사전에 없는 id·중복·빈 값(고르지 않은 select)은 버린다(없는 브랜드는 백엔드가 400으로 거절함)
+  const ids = (v: string | string[] | undefined, known: Map<number, unknown> = byId) =>
+    [...new Set(all(v).filter((s) => /^\d{1,15}$/.test(s)).map(Number))].filter((id) => known.has(id)).slice(0, MAX_IDS);
   // type=number 입력이 보내는 0 이상 숫자(".5", "1e3" 포함, 백엔드 BigDecimal이 그대로 읽음). 그 밖의 값은 조건 없음
   const amount = (v: string | string[] | undefined) => {
     const s = one(v).trim();
@@ -718,6 +794,9 @@ function parseParams(sp: Record<string, string | string[] | undefined>, byId: Ma
     max: amount(sp.max),
     // 기준값이 없는 성분이 섞이면 백엔드가 거절한다. 그 성분을 방금 추가한 경우라 조용히 끈다(체크박스도 꺼져 보인다)
     meetsReference: one(sp.meetsReference) === "true" && ingredients.every((id) => byId.get(id)!.referenceAmount !== null),
+    brands: ids(sp.brand, brandById),
+    // 수출용만 보기(market=export)는 화면에 두지 않는다. 기본 정렬이 이미 수출용을 뒤로 보낸다
+    domestic: one(sp.market) === "domestic",
     // 첫 성분 함량순은 기본값("")으로 맞춘다. 고르지 않은 성분 기준이면 기본값
     sort: sortRaw === "latest" ? "latest" : sortId !== null && ingredients.indexOf(sortId) > 0 ? sortRaw : "",
     page: Number.isInteger(page) && page >= 0 ? Math.min(page, MAX_PAGE) : 0,
@@ -762,7 +841,19 @@ function toQuery(p: Params) {
   if (p.min) sp.set("min", p.min);
   if (p.max) sp.set("max", p.max);
   if (p.meetsReference) sp.set("meetsReference", "true");
+  p.brands.forEach((id) => sp.append("brand", String(id)));
+  if (p.domestic) sp.set("market", "domestic");
   if (p.sort) sp.set("sort", p.sort);
   if (p.page > 0) sp.set("page", String(p.page));
   return sp;
+}
+
+// 브랜드는 접힌 필터 하나에만 쓰여 실패해도 목록은 보여준다(URL의 brand도 버려진다)
+async function loadBrands() {
+  try {
+    return await getBrands();
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
 }

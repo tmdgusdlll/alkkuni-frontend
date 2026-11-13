@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { BasisBadge, ReviewBadge } from "@/components/badges";
+import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
 import { FormIcon } from "@/components/FormIcon";
 import { Pagination } from "@/components/Pagination";
 import { SearchBar } from "@/components/SearchBar";
@@ -94,6 +94,12 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
               성분 <b className="text-ink">{ingredient.name}</b> · 함량은 이 성분의 1일 함량이에요.
             </p>
           )}
+          {/* 검색어가 브랜드 표기면 이름에 검색어가 없는 그 브랜드 제품("애터미" → "ATOMY …")도 더해져 이유를 알린다 */}
+          {data.matchedBrand && (
+            <p className="mt-1 text-sm text-ink-muted">
+              브랜드 <b className="text-ink">{data.matchedBrand.name}</b> 제품도 함께 보여줘요.
+            </p>
+          )}
         </div>
         <nav aria-label="정렬" className="flex gap-1">
           {sorts.map((s) => (
@@ -140,6 +146,7 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
       <div className="flex min-w-0 flex-[999_1_320px] items-center gap-4">
         <FormIcon form={item.form} />
         <div className="min-w-0">
+          <BrandLabel brand={item.brand} name={item.name} />
           <Link href={`/products/${item.id}`} className="block font-bold text-ink hover:text-brand-700 hover:underline">
             {item.name}
           </Link>
@@ -149,6 +156,7 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
         </div>
       </div>
       <div className="flex flex-[1_1_auto] items-center justify-end gap-2">
+        {item.exportOnly && <ExportBadge />}
         {/* DESIGN.md 7.3.1: 검수 대기 제품이거나 상한 2배를 넘는 오류 의심 값 */}
         {(item.parseStatus === "NEEDS_REVIEW" || item.exceedsUpperLimit) && <ReviewBadge />}
         {showAmount &&

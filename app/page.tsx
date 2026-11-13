@@ -2,7 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AmountCell, barMaxOf } from "@/components/AmountCell";
-import { BasisBadge, ReviewBadge } from "@/components/badges";
+import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
 import { SearchBar } from "@/components/SearchBar";
 import { productMeta } from "@/lib/format";
 import { getExplore, getIngredients } from "@/lib/queries";
@@ -95,6 +95,7 @@ async function TopProducts({ ing }: { ing: IngredientItem }) {
         <li key={item.id} className="flex gap-3">
           <span className="w-4 shrink-0 pt-0.5 text-sm font-bold tabular-nums text-ink-muted">{i + 1}</span>
           <div className="min-w-0 flex-1">
+            <BrandLabel brand={item.brand} name={item.name} />
             <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
               {item.name}
             </Link>
@@ -104,6 +105,7 @@ async function TopProducts({ ing }: { ing: IngredientItem }) {
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               <BasisBadge basisCheck={item.basisCheck} />
               {item.parseStatus === "NEEDS_REVIEW" && !values.some((v) => v.exceedsUpperLimit) && <ReviewBadge />}
+              {item.exportOnly && <ExportBadge />}
             </div>
             <div className="mt-2">
               <AmountCell values={values} ing={ing} barMax={barMax} />

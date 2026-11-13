@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { AmountCell, barValue } from "@/components/AmountCell";
-import { BasisBadge, ReviewBadge } from "@/components/badges";
+import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
 import { api } from "@/lib/api";
 import { productMeta } from "@/lib/format";
 import type { CompareIngredient, CompareProduct, ProductCompareResponse, ProductDetailResponse } from "@/types/api";
@@ -139,8 +139,8 @@ async function Table({ ids, href }: { ids: number[]; href: Props["href"] }) {
   );
 }
 
-// 담은 제품 머리: A/B/C · 제조사 · 제품명 · 제형 · 배지 · 빼기.
-// manufacturer는 위탁생산 제조사라 브랜드 자리에 두지 않고 "제조사"로 적는다(브랜드는 API에 생기면 이름 위에 둔다)
+// 담은 제품 머리: A/B/C · 브랜드 · 제품명 · 제조사·제형 · 배지 · 빼기.
+// manufacturer는 위탁생산 제조사라 브랜드 자리에 두지 않고 "제조사"로 적는다
 function ProductHead({ p, index, remove }: { p: CompareProduct; index: number; remove: string }) {
   const s = SERIES[index];
   return (
@@ -153,7 +153,10 @@ function ProductHead({ p, index, remove }: { p: CompareProduct; index: number; r
           빼기 <span aria-hidden="true">✕</span>
         </Link>
       </div>
-      <Link href={`/products/${p.id}`} className="mt-2 block font-bold break-keep text-ink hover:text-brand-700 hover:underline">
+      <div className="mt-2">
+        <BrandLabel brand={p.brand} name={p.name} />
+      </div>
+      <Link href={`/products/${p.id}`} className="block font-bold break-keep text-ink hover:text-brand-700 hover:underline">
         {p.name}
       </Link>
       <p className="mt-0.5 text-xs text-ink-muted">
@@ -162,6 +165,7 @@ function ProductHead({ p, index, remove }: { p: CompareProduct; index: number; r
       <div className="mt-2 flex flex-wrap gap-1.5">
         <BasisBadge basisCheck={p.basisCheck} explain={false} />
         {p.parseStatus === "NEEDS_REVIEW" && <ReviewBadge />}
+        {p.exportOnly && <ExportBadge />}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
-import { BasisBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
+import { BasisBadge, BrandLabel, ExportBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
 import { DvProgress } from "@/components/DvProgress";
 import { FormIcon } from "@/components/FormIcon";
 import { api } from "@/lib/api";
@@ -66,10 +66,13 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
               이미지 준비 중
             </span>
           </div>
-          {/* 위탁생산 제조사라 브랜드처럼 보이지 않게 "제조사"를 붙인다. 브랜드는 API에 생기면 이 자리에 둔다 */}
-          {p.manufacturer && <p className="mt-5 text-sm text-ink-muted">제조사 {p.manufacturer}</p>}
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight break-keep text-ink">{p.name}</h1>
-          {(p.recalls.length > 0 || needsReview) && (
+          {/* 브랜드는 제품명 바로 위, 제조사는 아래(DESIGN.md 9). 제조사는 위탁생산 회사라 브랜드처럼 보이지 않게 떼어 둔다 */}
+          <div className="mt-5">
+            <BrandLabel brand={p.brand} name={p.name} />
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-tight break-keep text-ink">{p.name}</h1>
+          {p.manufacturer && <p className="mt-1 text-sm text-ink-muted">제조사 {p.manufacturer}</p>}
+          {(p.recalls.length > 0 || needsReview || p.exportOnly) && (
             <div className="mt-3 flex flex-wrap gap-2">
               {p.recalls.length > 0 && (
                 <a
@@ -80,6 +83,7 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
                 </a>
               )}
               {needsReview && <ReviewBadge />}
+              {p.exportOnly && <ExportBadge />}
             </div>
           )}
           <dl className="mt-5 grid grid-cols-2 gap-2">
