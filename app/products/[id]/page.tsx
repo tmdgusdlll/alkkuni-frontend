@@ -109,6 +109,21 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
             <section className="rounded-panel bg-surface p-6">
               <h2 className="text-lg font-extrabold text-ink">식약처 인정 기능성</h2>
               <p className="mt-1 text-sm text-ink-muted">제품에 표시된 기능성 문구를 그대로 옮겼어요.</p>
+              {/* 문구로 나눈 기능성. 같은 기능성이 적힌 제품 목록으로 간다 */}
+              {p.categories.length > 0 && (
+                <ul aria-label="같은 기능성 제품 보기" className="mt-3 flex flex-wrap gap-1.5">
+                  {p.categories.map((c) => (
+                    <li key={c.code}>
+                      <Link
+                        href={`/explore?category=${c.code}`}
+                        className="inline-flex h-8 items-center rounded-full border border-line bg-white px-3 text-sm text-ink-soft hover:border-brand-500 hover:text-brand-700"
+                      >
+                        {c.label} 제품 보기
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
               {/* 원문의 줄바꿈·번호를 그대로 둔다(성분별 구조가 제품마다 달라 나누지 않음) */}
               <p className="mt-4 whitespace-pre-line rounded-card bg-white p-4 text-[15px] leading-relaxed text-ink-soft">
                 {p.functionality}

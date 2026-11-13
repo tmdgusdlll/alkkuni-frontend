@@ -1,6 +1,6 @@
 import { cacheLife } from "next/cache";
 import { api } from "@/lib/api";
-import type { BrandItem, IngredientItem, ProductExploreResponse } from "@/types/api";
+import type { BrandItem, CategoryItem, IngredientItem, ProductExploreResponse } from "@/types/api";
 
 // 성분 사전(215개)은 Flyway로만 바뀌어 서버 메모리에 캐시한다. 조건이 바뀔 때마다 앞에 왕복이 붙지 않게
 export async function getIngredients() {
@@ -19,6 +19,15 @@ export async function getBrands() {
   cacheLife("hours");
   const res = await api<BrandItem[]>("/api/brands");
   if ("error" in res) throw new Error(`브랜드 목록을 불러오지 못했습니다: ${res.error.code}`);
+  return res.data;
+}
+
+// 기능성 카테고리 24개. 판정 규칙이 배포로만 바뀌고 제품 수는 하루 한 번 바뀐다
+export async function getCategories() {
+  "use cache";
+  cacheLife("hours");
+  const res = await api<CategoryItem[]>("/api/categories");
+  if ("error" in res) throw new Error(`카테고리 목록을 불러오지 못했습니다: ${res.error.code}`);
   return res.data;
 }
 

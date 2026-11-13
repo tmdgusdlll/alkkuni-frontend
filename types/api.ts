@@ -29,6 +29,12 @@ export type BrandItem = {
   exportCount: number;
 };
 
+// category/CategoryRef.kt: 기능성 카테고리. code는 /explore의 category= 값이다
+export type CategoryRef = { code: string; label: string };
+
+// GET /api/categories (category/CategoryController.kt). 24개 고정 순서, 제품이 없어도 0으로 온다
+export type CategoryItem = CategoryRef & { productCount: number };
+
 // product/ProductSearchResponse.kt
 export type ProductSearchSort = "relevance" | "latest" | "amount";
 
@@ -102,6 +108,8 @@ export type ProductDetailResponse = BrandFields & {
   intakeMethod: string | null;
   functionalMaterials: string | null;
   functionality: string | null;
+  // 기능성 원문에서 판정한 카테고리. 없으면 빈 목록
+  categories: CategoryRef[];
   precautions: string | null;
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;
@@ -151,16 +159,19 @@ export type ProductExploreItem = BrandFields & {
   reportedOn: string | null;
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;
-  // 고른 성분 순서. 같은 성분 행이 여러 개면 values가 여러 개다(합치지 않음)
+  // 기능성 원료 원문. 카테고리로 찾을 때 어떤 원료 제품인지 보여준다
+  functionalMaterials: string | null;
+  categories: CategoryRef[];
+  // 고른 성분 순서. 카테고리만 골랐으면 빈 목록. 같은 성분 행이 여러 개면 values가 여러 개다(합치지 않음)
   amounts: { ingredientId: number; values: CompareAmount[] }[];
 };
 
 export type ProductExploreResponse = {
   totalCount: number;
-  // 고른 성분(요청 순서)
+  // 고른 성분(요청 순서). 카테고리만 골랐으면 빈 목록
   ingredients: ExploreIngredient[];
-  // 함량순 정렬과 함량 범위가 걸린 성분
-  baseIngredientId: number;
+  // 함량순 정렬과 함량 범위가 걸린 성분. 카테고리만 골랐으면 null
+  baseIngredientId: number | null;
   items: ProductExploreItem[];
 };
 
@@ -171,6 +182,7 @@ export type CompareProduct = BrandFields & {
   // 위탁생산 제조사. 브랜드가 아니다(한 브랜드 제품의 제조사가 10곳 넘기도 함)
   manufacturer: string | null;
   form: string | null;
+  categories: CategoryRef[];
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;
 };
