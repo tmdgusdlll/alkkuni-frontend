@@ -101,7 +101,9 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
   const [dict, brands, categories] = await Promise.all([getIngredients(), orNull(getBrands), orNull(getCategories)]);
   const byId = new Map(dict.map((i) => [i.id, i]));
   const brandById = new Map((brands ?? []).map((b) => [b.id, b]));
+  // 주소의 code 확인은 전체 목록으로, 고르는 칩·select는 제품이 있는 카테고리만(0개는 눌러도 빈 목록)
   const categoryByCode = new Map((categories ?? []).map((c) => [c.code, c]));
+  const choosable = categories?.filter((c) => c.productCount > 0) ?? null;
   const params = parseParams(sp, byId, brandById, categoryByCode);
   const categoryLabel = categoryByCode.get(params.category)?.label;
   // 목록 조건만의 key. 담은 제품(ids)·검색어만 바뀌면 목록·필터에 "불러오는 중"을 다시 띄우지 않는다(API는 getExplore 캐시)
@@ -118,14 +120,16 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
       </nav>
       <h1 className="mt-3 text-2xl font-extrabold tracking-tight text-ink">성분별 제품 목록</h1>
       <p className="mt-1 text-ink-muted">
-        {params.ingredients.length === 0 && categoryLabel
-          ? `'${categoryLabel}' 기능성이 표시된 제품을 최신 신고순으로 보여줘요. 성분을 더하면 함량순으로 견줘요.`
-          : "고른 성분이 모두 든 제품을 1일 함량 순서로 보여줘요."}
+        {!categoryLabel
+          ? "고른 성분이 모두 든 제품을 1일 함량 순서로 보여줘요."
+          : params.ingredients.length === 0
+            ? `'${categoryLabel}' 기능성이 표시된 제품을 최신 신고순으로 보여줘요. 성분을 더하면 함량순으로 견줘요.`
+            : `'${categoryLabel}' 기능성이 표시된 제품 중 고른 성분이 모두 든 제품을 1일 함량 순서로 보여줘요.`}
       </p>
 
       {params.ingredients.length === 0 && !params.category ? (
         <>
-          <Start dict={dict} categories={categories} params={params} />
+          <Start dict={dict} categories={choosable} params={params} />
           <div className="mt-8">
             <ProductSearch params={params} />
           </div>
@@ -140,7 +144,8 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
             byId={byId}
             brands={brands}
             brandById={brandById}
-            categories={categories}
+            categories={choosable}
+            categoryLabel={categoryLabel}
           />
           <div className="mt-8 flex flex-wrap items-start gap-8">
             <section className="min-w-0 flex-[999_1_560px]">
@@ -150,7 +155,7 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
                 <Results params={params} />
               </Suspense>
             </section>
-            <Guide categoryOnly={params.ingredients.length === 0} />
+            <Guide params={params} />
           </div>
         </>
       )}
@@ -204,24 +209,22 @@ function Start({ dict, categories, params }: { dict: IngredientItem[]; categorie
         <QInput q={params.q} />
         <SubmitButton>보기</SubmitButton>
       </form>
-      {/* 성분을 몰라도 기능성으로 고르는 입구. 목록을 못 불러오면 숨긴다. 제품이 없는 카테고리는 눌러도 빈 목록이라 뺀다 */}
+      {/* 성분을 몰라도 기능성으로 고르는 입구. 목록을 못 불러오면 숨긴다 */}
       {categories && (
         <>
           <p className="mt-10 text-lg font-bold text-ink">성분을 모르면 기능성으로 찾아요</p>
           <p className="mt-1 text-sm text-ink-muted">제품에 표시된 식약처 인정 기능성 문구로 나눴어요.</p>
           <ul className="mt-5 flex flex-wrap justify-center gap-2">
-            {categories
-              .filter((c) => c.productCount > 0)
-              .map((c) => (
-                <li key={c.code}>
-                  <Link
-                    href={exploreHref({ ...params, category: c.code })}
-                    className="inline-flex h-9 items-center rounded-full border border-line bg-white px-4 text-sm text-ink-soft hover:border-brand-500 hover:text-brand-700"
-                  >
-                    {c.label}
-                  </Link>
-                </li>
-              ))}
+            {categories.map((c) => (
+              <li key={c.code}>
+                <Link
+                  href={exploreHref({ ...params, category: c.code })}
+                  className="inline-flex h-9 items-center rounded-full border border-line bg-white px-4 text-sm text-ink-soft hover:border-brand-500 hover:text-brand-700"
+                >
+                  {c.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </>
       )}
@@ -238,6 +241,7 @@ function Filters({
   brands,
   brandById,
   categories,
+  categoryLabel,
 }: {
   params: Params;
   dict: IngredientItem[];
@@ -247,10 +251,15 @@ function Filters({
   brandById: Map<number, BrandItem>;
   // null이면 카테고리 목록을 못 불러와 기능성 필터를 숨긴다(parseParams가 category도 버림)
   categories: CategoryItem[] | null;
+  // 고른 기능성 이름. 고르지 않았으면 undefined
+  categoryLabel: string | undefined;
 }) {
   // 기준 성분. 기능성만 골랐으면 없고, 함량 범위·기준 충족을 두지 않는다(백엔드가 거절)
   const baseId = baseOf(params);
   const base = baseId === undefined ? undefined : byId.get(baseId);
+  // 함량 범위 단위. defaultUnit이 없는 성분은 단위가 섞이지 않아 기준값 단위와 같다(백엔드 데이터로 확인, 2026-11-11).
+  // 기준값도 없는 성분(mg·CFU 등)은 결과의 단위를 쓴다
+  const unit = base && (base.defaultUnit ?? base.referenceUnit);
   const used = new Set([...params.ingredients, ...params.exclude]);
   const rest = dict.filter((i) => !used.has(i.id));
   const noReference = params.ingredients.map((id) => byId.get(id)!).filter((i) => i.referenceAmount === null);
@@ -285,10 +294,10 @@ function Filters({
       {/* 기능성은 하나만 고른다(백엔드 category=). 성분과 함께 고르면 그 기능성 제품 안에서 함량순으로 견준다 */}
       {categories && (
         <FilterRow label="기능성">
-          {params.category ? (
+          {categoryLabel ? (
             <>
               <Chip
-                label={categories.find((c) => c.code === params.category)!.label}
+                label={categoryLabel}
                 action="빼기"
                 href={nextHref(params, { category: "" })}
               />
@@ -297,13 +306,11 @@ function Filters({
           ) : (
             <select name="category" aria-label="+ 기능성" defaultValue="" className="h-9 w-44 max-w-full rounded-full border border-line bg-white px-3 text-sm text-ink-soft">
               <option value="">+ 기능성</option>
-              {categories
-                .filter((c) => c.productCount > 0)
-                .map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.label}
-                  </option>
-                ))}
+              {categories.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
             </select>
           )}
         </FilterRow>
@@ -397,10 +404,8 @@ function Filters({
                   ~
                 </span>
                 <AmountInput name="max" label="최대" defaultValue={params.max} />
-                {/* 함량 범위 단위. defaultUnit이 없는 성분은 단위가 섞이지 않아 기준값 단위와 같다(백엔드 데이터로 확인, 2026-11-11).
-                    기준값도 없는 성분(mg·CFU 등)은 결과의 단위를 쓴다 */}
-                {(base.defaultUnit ?? base.referenceUnit) ? (
-                  <span className="text-sm text-ink-muted">{base.defaultUnit ?? base.referenceUnit}</span>
+                {unit ? (
+                  <span className="text-sm text-ink-muted">{unit}</span>
                 ) : (
                   <Suspense fallback={null}>
                     <ResultUnit params={params} baseId={base.id} />
@@ -455,10 +460,10 @@ async function Results({ params }: { params: Params }) {
   if ("error" in res) return <ExploreError params={params} error={res.error} />;
   const data = res.data;
   const lastPage = Math.min(Math.ceil(data.totalCount / PAGE_SIZE) - 1, MAX_PAGE);
-  // 기능성만 골랐으면 함량순이 없고 최신 신고순이 기본값("")이다
+  // 기능성만 골랐으면 최신 신고순 하나뿐이라 정렬 메뉴를 두지 않는다
   const sorts =
     data.ingredients.length === 0
-      ? [{ value: "", label: "최신 신고순" }]
+      ? []
       : [
           ...data.ingredients.map((ing, i) => ({ value: i === 0 ? "" : `amount:${ing.id}`, label: `${ing.name} 함량순` })),
           { value: "latest", label: "최신 신고순" },
@@ -470,20 +475,22 @@ async function Results({ params }: { params: Params }) {
         <h2 className="text-lg font-extrabold text-ink">
           조건에 맞는 제품 <span className="tabular-nums text-brand-700">{data.totalCount.toLocaleString("ko-KR")}</span>개
         </h2>
-        <nav aria-label="정렬" className="flex flex-wrap gap-1">
-          {sorts.map((s) => (
-            <Link
-              key={s.value}
-              href={nextHref(params, { sort: s.value })}
-              aria-current={s.value === params.sort ? "page" : undefined}
-              className={`rounded-full px-3.5 py-1.5 text-sm ${
-                s.value === params.sort ? "bg-brand-50 font-bold text-brand-700" : "text-ink-soft hover:bg-surface"
-              }`}
-            >
-              {s.label}
-            </Link>
-          ))}
-        </nav>
+        {sorts.length > 0 && (
+          <nav aria-label="정렬" className="flex flex-wrap gap-1">
+            {sorts.map((s) => (
+              <Link
+                key={s.value}
+                href={nextHref(params, { sort: s.value })}
+                aria-current={s.value === params.sort ? "page" : undefined}
+                className={`rounded-full px-3.5 py-1.5 text-sm ${
+                  s.value === params.sort ? "bg-brand-50 font-bold text-brand-700" : "text-ink-soft hover:bg-surface"
+                }`}
+              >
+                {s.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </div>
 
       {data.totalCount === 0 ? (
@@ -707,22 +714,31 @@ function ExploreError({ params, error }: { params: Params; error: ErrorBody }) {
         href={exploreHref({ ...params, exclude: [], forms: [], brands: [], domestic: false, min: "", max: "", meetsReference: false, sort: "", page: 0 })}
         className="mt-3 inline-block font-bold text-brand-700"
       >
-        {params.category ? "고른 성분·기능성만 남기고 조건 지우기" : "고른 성분만 남기고 조건 지우기"}
+        {params.ingredients.length === 0 ? "고른 기능성만 남기고 조건 지우기" : params.category ? "고른 성분·기능성만 남기고 조건 지우기" : "고른 성분만 남기고 조건 지우기"}
       </Link>
     </div>
   );
 }
 
 // 비교 기준 설명과 배지 범례(DESIGN.md 8.2 사이드 안내). 순위가 효능 평가로 읽히지 않게 적는다
-function Guide({ categoryOnly }: { categoryOnly: boolean }) {
+function Guide({ params }: { params: Params }) {
+  const categoryOnly = params.ingredients.length === 0;
   return (
     <aside className="flex-[1_1_280px] rounded-panel bg-brand-50 p-6 text-sm leading-relaxed text-ink-soft">
       <h2 className="text-base font-extrabold text-ink">이렇게 비교해요</h2>
       <ul className="mt-3 flex list-disc flex-col gap-2 pl-4">
-        {/* 기능성 판정은 문구 기준이라 빠지는 제품이 있을 수 있음을 알린다(효능 평가로 읽히지 않게) */}
-        <li>기능성은 제품에 표시된 식약처 인정 기능성 문구로 나눠요. 문구가 다르게 적힌 제품은 빠질 수 있어요.</li>
-        {categoryOnly && <li>기능성만 고르면 최신 신고순이에요. 성분을 더하면 그 성분 함량순으로 견줘요.</li>}
-        <li>고른 성분이 모두 든 제품만 보여주고, 제외 성분이 하나라도 든 제품은 빼요.</li>
+        {/* 기능성을 골랐을 때만. 판정이 문구 기준이라 빠지는 제품이 있을 수 있음을 알린다(효능 평가로 읽히지 않게) */}
+        {params.category && (
+          <li>기능성은 제품에 표시된 식약처 인정 기능성 문구로 나눠요. 문구가 다르게 적힌 제품은 빠질 수 있어요.</li>
+        )}
+        {categoryOnly ? (
+          <>
+            <li>기능성만 고르면 최신 신고순이에요. 성분을 더하면 그 성분 함량순으로 견줘요.</li>
+            <li>제외 성분이 하나라도 든 제품은 빼요.</li>
+          </>
+        ) : (
+          <li>고른 성분이 모두 든 제품만 보여주고, 제외 성분이 하나라도 든 제품은 빼요.</li>
+        )}
         {/* 함량 설명은 성분을 골라 함량 열이 있을 때만 */}
         {!categoryOnly && (
           <>
@@ -888,29 +904,32 @@ function parseParams(
   const category = categoryByCode.has(one(sp.category)) ? one(sp.category) : "";
   // 성분·기능성을 고르지 않은 처음 화면에서는 목록 조건(page·form 등)이 보이지 않으니 버린다. 성분을 고를 때 그대로 따라가지 않게
   if (ingredients.length === 0 && !category) return { ...EMPTY, ...keep };
-  // 기능성만 골랐으면 기준 성분이 없어 함량 범위·기준 충족·함량순을 버린다(백엔드가 거절). 정렬은 최신 신고순 하나라 기본값("")
-  const hasBase = ingredients.length > 0;
-
   const sortRaw = one(sp.sort);
   const sortId = sortIdOf(sortRaw);
   const page = Number.parseInt(one(sp.page), 10);
-  return {
+  return withoutBase({
     ingredients,
     category,
     exclude: ids(sp.exclude).filter((id) => !ingredients.includes(id)),
     forms: [...new Set(all(sp.form))].filter((f) => FORMS.includes(f)),
-    min: hasBase ? amount(sp.min) : "",
-    max: hasBase ? amount(sp.max) : "",
+    min: amount(sp.min),
+    max: amount(sp.max),
     // 기준값이 없는 성분이 섞이면 백엔드가 거절한다. 그 성분을 방금 추가한 경우라 조용히 끈다(체크박스도 꺼져 보인다)
-    meetsReference: hasBase && one(sp.meetsReference) === "true" && ingredients.every((id) => byId.get(id)!.referenceAmount !== null),
+    meetsReference: one(sp.meetsReference) === "true" && ingredients.every((id) => byId.get(id)!.referenceAmount !== null),
     brands: ids(sp.brand, brandById),
     // 수출용만 보기(market=export)는 화면에 두지 않는다. 기본 정렬이 이미 수출용을 뒤로 보낸다
     domestic: one(sp.market) === "domestic",
     // 첫 성분 함량순은 기본값("")으로 맞춘다. 고르지 않은 성분 기준이면 기본값
-    sort: !hasBase ? "" : sortRaw === "latest" ? "latest" : sortId !== null && ingredients.indexOf(sortId) > 0 ? sortRaw : "",
+    sort: sortRaw === "latest" ? "latest" : sortId !== null && ingredients.indexOf(sortId) > 0 ? sortRaw : "",
     page: Number.isInteger(page) && page >= 0 ? Math.min(page, MAX_PAGE) : 0,
     ...keep,
-  };
+  });
+}
+
+// 기능성만 골랐으면 기준 성분이 없어 함량 범위·기준 충족·함량순을 버린다(백엔드가 거절). 정렬은 최신 신고순 하나라 기본값("").
+// 주소를 읽을 때(parseParams)와 만들 때(nextHref) 같이 쓴다
+function withoutBase(p: Params): Params {
+  return p.ingredients.length > 0 ? p : { ...p, min: "", max: "", meetsReference: false, sort: "" };
 }
 
 // 조건을 바꾸는 링크. 첫 페이지로 돌아가고, 기준 성분이 바뀌면 함량 범위(그 성분의 값·단위)를 비운다
@@ -919,8 +938,7 @@ function nextHref(p: Params, change: Partial<Params>) {
   if (n.ingredients.length === 0) {
     // 성분·기능성을 모두 빼면 처음 화면이다. 거기서는 다른 조건이 보이지 않아 남기지 않는다
     if (!n.category) return exploreHref({ ...EMPTY, ids: p.ids, q: p.q });
-    // 기능성만 남으면 함량 조건이 없다(parseParams와 같은 규칙)
-    return exploreHref({ ...n, min: "", max: "", meetsReference: false, sort: "" });
+    return exploreHref(withoutBase(n));
   }
   const sortId = sortIdOf(n.sort);
   if (sortId !== null && n.ingredients.indexOf(sortId) <= 0) n.sort = "";

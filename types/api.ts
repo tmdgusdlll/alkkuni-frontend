@@ -182,7 +182,6 @@ export type CompareProduct = BrandFields & {
   // 위탁생산 제조사. 브랜드가 아니다(한 브랜드 제품의 제조사가 10곳 넘기도 함)
   manufacturer: string | null;
   form: string | null;
-  categories: CategoryRef[];
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;
 };

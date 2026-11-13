@@ -31,7 +31,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 - [x] 메인 `/` (검색 히어로 + 인기 성분 비교. 성분은 고정 6개, 2026-11-12 정함) (PR #8)
 - [x] **백엔드 새 필드 반영** (2026-11-13 정함)
   - [x] 브랜드·수출용: 제품 응답 `brand`·`exportOnly`, 검색 `matchedBrand`, `/explore` 브랜드 필터·수출용 빼기 (PR #9)
-  - [x] 기능성 카테고리: `/explore` 성분 없이 `category=`만으로 목록, 카테고리 칩, 응답 `categories`·`functionalMaterials` (`feat/category`)
+  - [x] 기능성 카테고리: `/explore` 성분 없이 `category=`만으로 목록, 카테고리 칩, 응답 `categories`·`functionalMaterials` (PR #10)
 - [ ] 배포
   - [x] CI: PR·main 푸시마다 린트·빌드(`.github/workflows/ci.yml`), main 브랜치 보호 (PR #5)
   - [ ] CD: Dockerfile, ECR 푸시, EC2 `WEB_TAG` 교체. 운영 compose·Nginx(백엔드 레포)가 생긴 뒤
@@ -39,7 +39,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ## 다음 할 일
 
-### 기능성으로 찾기 (브랜치 `feat/category`, 2026-11-13)
+### 기능성으로 찾기 (브랜치 `feat/category`, PR #10, 2026-11-13)
 
 백엔드 PR #34(판정)·#35(`category=`, `GET /api/categories`, 응답 `categories`)를 화면에 붙인다.
 
@@ -69,7 +69,9 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 
 ### 2026-11-13
 
-- 기능성으로 찾기 (`feat/category`)
+- 기능성으로 찾기 (`feat/category`, PR #10)
+  - `/code-review` 반영(10건 중 9건): 사이드 안내·제목 아래 설명·오류 링크 문구를 고른 조건(기능성만 / 성분만 / 둘 다)에 맞게. 기능성 안내 줄은 기능성을 골랐을 때만. 기능성만 고르면 정렬 메뉴(탭 하나뿐)를 숨김. 제품 0개 거르기를 한 곳(`choosable`)에서. 필터 칩 이름은 `categoryLabel`을 넘겨 다시 찾지 않음. 기능성 모드에서 함량 조건을 버리는 규칙을 `withoutBase` 하나로(`parseParams`·`nextHref`가 같이 씀). 쓰지 않는 `CompareProduct.categories` 타입 삭제, 주석의 `loadBrands`를 `orNull`로.
+  - 반영하지 않음: 카테고리 목록 API가 실패하면 상세의 "눈 제품 보기"가 처음 화면으로 떨어지는 것. 목록은 몇 시간 캐시되고 같은 백엔드라 그 API만 실패하는 일은 드물다. 막으려면 사전 없이 code를 받아 칩 이름 대신 code를 보여주는 분기가 늘어난다.
   - 별도 화면 없이 `/explore`의 모드로 붙였다(백엔드도 새 API 없이 `/explore`가 `category=`를 받음). 성분·기능성 둘 다 없으면 처음 화면, 기능성만 있으면 기능성 모드, 성분이 있으면 지금처럼 함량순(기능성은 조건 하나로 더해짐).
   - 기능성 모드에서 함량 범위·기준 충족·함량순은 백엔드가 400으로 거절한다. 오류를 보여주지 않고 `parseParams`·`nextHref`가 버린다(성분 칩을 마지막으로 빼면 함량 조건이 남아 있기 때문). 정렬은 최신순 하나라 `sort` 값을 두지 않는다(URL 하나로).
   - 기능성 칩은 고른 성분 아래 펼친 줄에 둔다(입구 역할이라 접힌 필터에 두지 않음). 하나만 고르므로 고르면 칩, 아니면 select.

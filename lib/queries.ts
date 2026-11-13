@@ -13,7 +13,7 @@ export async function getIngredients() {
 }
 
 // 브랜드 사전(200개 안팎)도 Flyway로만 바뀌어 성분 사전과 같이 캐시한다.
-// 던지면 캐시에 남지 않는다. /explore는 실패를 받아 브랜드 필터만 숨긴다(loadBrands)
+// 던지면 캐시에 남지 않는다. /explore는 실패를 받아 브랜드 필터만 숨긴다(orNull, 카테고리도 같음)
 export async function getBrands() {
   "use cache";
   cacheLife("hours");
