@@ -1,4 +1,4 @@
-import type { BasisCheck } from "@/types/api";
+import type { BasisCheck, BrandRef } from "@/types/api";
 
 // DESIGN.md 7.3: DAILY·PER_SERVING은 하루치를 확인한 값이라 "1일 기준", 그 외·null은 "표시 기준량".
 // explain=false는 설명을 펼치지 않는다. 가로 스크롤 표 안에서는 펼친 설명이 잘려 옆 안내(범례)에 설명을 둔다
@@ -44,6 +44,20 @@ export function OtherUnitBadge() {
       다른 단위 표기
     </span>
   );
+}
+
+// 제품명 표기로 판정한 수출용 제품. 국내에서 사기 어려워 목록 기본 정렬에서 뒤로 간다
+export function ExportBadge() {
+  return (
+    <span className="inline-flex rounded-full bg-neutral-bg px-2.5 py-1 text-xs font-bold text-neutral-fg">수출용</span>
+  );
+}
+
+// 제품명 위 브랜드(DESIGN.md 9). 브랜드는 제품명 앞부분에서 찾은 것이라 이름이 브랜드로 시작하면 같은 말이 겹쳐 뺀다.
+// "ATOMY …"(애터미)처럼 표기가 다를 때만 보인다
+export function BrandLabel({ brand, name }: { brand: BrandRef | null; name: string }) {
+  if (!brand || name.startsWith(brand.name)) return null;
+  return <p className="text-xs font-bold text-ink-soft">{brand.name}</p>;
 }
 
 // 둥근 선 아이콘(DESIGN.md 5). 장식이라 화면 읽기 프로그램에서 숨긴다

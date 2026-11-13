@@ -10,6 +10,21 @@ export type ApiResponse<T> = { data: T } | { error: ErrorBody };
 export type BasisCheck = "DAILY" | "PER_SERVING" | "MISMATCH" | "UNVERIFIED" | "UNREADABLE";
 export type ParseStatus = "PARSED" | "NO_AMOUNT" | "NEEDS_REVIEW" | "REVIEWED";
 
+// brand/BrandRef.kt: 제품명에서 찾은 브랜드. 대부분(약 88%) 제품은 null이다. 제조사(manufacturer)와 다르다
+export type BrandRef = { id: number; name: string };
+
+// 검색·성분별 목록의 market. 기본 all은 모두 보여주되 수출용을 뒤로 보낸다
+export type ProductMarket = "all" | "domestic" | "export";
+
+// GET /api/brands (brand/BrandController.kt). 공개 제품이 있는 브랜드, 국내 제품 수 많은 순
+export type BrandItem = {
+  id: number;
+  name: string;
+  // 성분과 상관없는 전체 제품 수. domesticCount가 0이면 수출용만 있는 브랜드다
+  domesticCount: number;
+  exportCount: number;
+};
+
 // product/ProductSearchResponse.kt
 export type ProductSearchSort = "relevance" | "latest" | "amount";
 
@@ -19,6 +34,9 @@ export type ProductSearchItem = {
   id: number;
   name: string;
   manufacturer: string | null;
+  brand: BrandRef | null;
+  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
+  exportOnly: boolean;
   form: string | null;
   reportedOn: string | null;
   // matchedIngredient의 1일 함량. 성분 검색이 아니거나 계산할 수 없으면 null
@@ -34,6 +52,8 @@ export type ProductSearchResponse = {
   totalCount: number;
   // 검색어가 성분 사전과 일치했을 때만 있다. 함량순 정렬과 dailyAmount가 이 성분 기준이다
   matchedIngredient: MatchedIngredient | null;
+  // 검색어가 브랜드 표기와 정확히 맞으면 그 브랜드. 그 브랜드 제품이 결과에 더해진다
+  matchedBrand: BrandRef | null;
   items: ProductSearchItem[];
 };
 
@@ -76,6 +96,9 @@ export type ProductDetailResponse = {
   reportNo: string;
   name: string;
   manufacturer: string | null;
+  brand: BrandRef | null;
+  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
+  exportOnly: boolean;
   form: string | null;
   reportedOn: string | null;
   intakeMethod: string | null;
@@ -126,6 +149,9 @@ export type ProductExploreItem = {
   id: number;
   name: string;
   manufacturer: string | null;
+  brand: BrandRef | null;
+  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
+  exportOnly: boolean;
   form: string | null;
   reportedOn: string | null;
   basisCheck: BasisCheck | null;
@@ -149,6 +175,9 @@ export type CompareProduct = {
   name: string;
   // 위탁생산 제조사. 브랜드가 아니다(한 브랜드 제품의 제조사가 10곳 넘기도 함)
   manufacturer: string | null;
+  brand: BrandRef | null;
+  // 수출용 제품(제품명 표기로 판정). "수출용" 배지를 단다
+  exportOnly: boolean;
   form: string | null;
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;
