@@ -14,7 +14,8 @@ import type { IngredientItem } from "@/types/api";
 const POPULAR = ["아연", "비타민 D", "비타민 B6", "비타민 B1", "비타민 B2", "비타민 C"];
 // 카드마다 보여줄 제품 수
 const TOP = 3;
-// 히어로 검색창 아래 칩(초안 1번 그대로). 검색어로 넘겨 성분명·제품명 어느 쪽이든 찾게 한다(오메가3·유산균은 사전 성분명이 아님)
+// 히어로 검색창 아래 검색 예시 칩(초안 1번 그대로). 아래 "인기 성분 비교"(POPULAR)와 다른 목록이라 '인기 성분'이라 부르지 않는다
+// ("추천"은 DESIGN.md 금지어). 검색어로 넘겨 성분명·제품명 어느 쪽이든 찾게 한다(오메가3·유산균은 사전 성분명이 아님)
 const HERO_CHIPS = ["비타민D", "마그네슘", "오메가3", "루테인", "유산균"];
 
 export default function Home() {
@@ -28,12 +29,12 @@ export default function Home() {
             <SearchBar size="hero" />
           </div>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            <span className="text-sm font-bold text-ink-soft">인기 성분</span>
+            <span className="text-sm font-bold text-ink-soft">검색 예시</span>
             {HERO_CHIPS.map((q) => (
               <Link
                 key={q}
                 href={`/search?${new URLSearchParams({ q })}`}
-                className="inline-flex h-9 items-center rounded-full border border-line bg-white px-4 text-sm text-ink-soft hover:border-brand-500 hover:text-brand-700"
+                className="inline-flex h-9 items-center rounded-full border border-brand-200 bg-white px-4 text-sm text-ink-soft hover:border-brand-500 hover:text-brand-700"
               >
                 # {q}
               </Link>
@@ -167,7 +168,7 @@ const SHORTCUTS: { title: string; desc: string; href?: string; tone: string; ico
     title: "성분 비교하기",
     desc: "함량을 나란히",
     href: "/explore",
-    tone: "bg-brand-50 text-brand-700",
+    tone: "bg-brand-100 text-brand-700",
     icon: <path d="M5 7h14M5 12h10M5 17h6" />,
   },
   {
@@ -220,7 +221,7 @@ function Shortcuts() {
               </Link>
             ) : (
               // 누를 수 없는 칸. 링크가 아니라 키보드 초점도 받지 않는다
-              <div aria-disabled="true" className="relative flex h-full items-center gap-4 rounded-card border-2 border-dashed border-line bg-white p-5">
+              <div className="relative flex h-full items-center gap-4 rounded-card border-2 border-dashed border-line bg-white p-5">
                 {body}
                 {/* 제목이 길어도 줄바꿈되지 않게 오른쪽 위에 둔다 */}
                 <span className="absolute top-2.5 right-2.5 rounded-full bg-warn-bg px-2 py-0.5 text-[11px] font-bold text-warn-fg">준비 중</span>
@@ -241,7 +242,7 @@ function News() {
       <div className="flex items-end justify-between gap-2">
         <h2 className="text-2xl font-extrabold tracking-tight text-ink">영양제 소식</h2>
         {/* 초안 1번 "더 보기". 소식 전체 화면(/news)과 API가 생기면 링크로 바꾼다. 지금은 갈 곳이 없어 누를 수 없게 둔다 */}
-        <span aria-disabled="true" className="cursor-not-allowed text-sm font-bold text-ink-muted">
+        <span className="cursor-not-allowed text-sm font-bold text-ink-muted">
           더 보기
         </span>
       </div>

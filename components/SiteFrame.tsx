@@ -3,13 +3,13 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MainNav, NavLinks } from "./MainNav";
 
-// 초안 1번 헤더: 로고 · 메뉴 │ 검색. 로그인 버튼은 로그인(백엔드 3단계) 뒤에 오른쪽 검색 옆에 붙인다
+// 초안 1번 헤더: 로고 · 메뉴 │ 검색(MainNav가 함께 그림). 로그인 버튼은 로그인(백엔드 3단계) 뒤에 오른쪽 검색 옆에 붙인다
 export function SiteHeader() {
   return (
     <header className="border-b border-line bg-white">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center gap-6 px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2 text-xl font-extrabold tracking-tight text-ink hover:text-ink">
-          <span aria-hidden="true" className="grid size-8 place-items-center rounded-[10px] bg-brand-50 text-brand-700">
+          <span aria-hidden="true" className="grid size-8 place-items-center rounded-[10px] bg-brand-100 text-brand-700">
             {/* 알약 아이콘 */}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-[18px]">
               <rect x="2.5" y="8" width="19" height="8" rx="4" transform="rotate(-45 12 12)" />
@@ -21,17 +21,6 @@ export function SiteHeader() {
         <Suspense fallback={<NavLinks pathname={null} />}>
           <MainNav />
         </Suspense>
-        {/* 검색 화면은 검색어가 없으면 검색창만 보여준다 */}
-        <Link
-          href="/search"
-          aria-label="검색"
-          className="ml-auto grid size-10 shrink-0 place-items-center rounded-full text-ink-soft hover:bg-surface hover:text-brand-700"
-        >
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="size-5">
-            <circle cx="11" cy="11" r="7" />
-            <path d="m20 20-3.5-3.5" />
-          </svg>
-        </Link>
       </div>
     </header>
   );

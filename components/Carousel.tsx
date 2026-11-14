@@ -22,8 +22,12 @@ export function Carousel({
     const el = track.current;
     if (!el) return;
     // 소수 픽셀 오차로 끝에 닿아도 1px 남는 경우가 있어 여유를 둔다
-    const update = () =>
-      setEdge({ start: el.scrollLeft <= 1, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 });
+    // 값이 그대로면 이전 객체를 돌려줘 스크롤 프레임마다 다시 그리지 않는다
+    const update = () => {
+      const start = el.scrollLeft <= 1;
+      const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
+      setEdge((prev) => (prev.start === start && prev.end === end ? prev : { start, end }));
+    };
     update();
     el.addEventListener("scroll", update, { passive: true });
     const resize = new ResizeObserver(update);
@@ -40,26 +44,24 @@ export function Carousel({
   const move = (dir: 1 | -1) => {
     const el = track.current;
     if (!el) return;
-    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollBy({ left: dir * el.clientWidth, behavior: smooth ? "smooth" : "auto" });
+    // 부드럽게 넘길지는 CSS(motion-safe:scroll-smooth)가 정한다
+    el.scrollBy({ left: dir * el.clientWidth });
   };
 
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>{heading}</div>
-        {/* 넘길 것이 없으면(카드가 한 화면에 다 들어감) 화살표를 숨긴다 */}
-        {!(edge.start && edge.end) && (
-          <div className="flex gap-1.5">
-            <ArrowButton label={`${label} 이전`} disabled={edge.start} onClick={() => move(-1)} dir="prev" />
-            <ArrowButton label={`${label} 다음`} disabled={edge.end} onClick={() => move(1)} dir="next" />
-          </div>
-        )}
+        {/* 넘길 것이 없으면(카드가 한 화면에 다 들어감) 화살표를 숨긴다. 자리는 남겨 둬 하이드레이션 뒤 나타날 때 아래 카드가 밀리지 않게 한다 */}
+        <div className={`flex gap-1.5 ${edge.start && edge.end ? "invisible" : ""}`}>
+          <ArrowButton label={`${label} 이전`} disabled={edge.start} onClick={() => move(-1)} dir="prev" />
+          <ArrowButton label={`${label} 다음`} disabled={edge.end} onClick={() => move(1)} dir="next" />
+        </div>
       </div>
       {/* 카드 그림자가 잘리지 않게 안쪽 여백을 두고 같은 만큼 바깥으로 당긴다. 스크롤바는 화살표가 대신해 숨긴다 */}
       <div
         ref={track}
-        className="-mx-2 mt-4 snap-x snap-mandatory overflow-x-auto scroll-px-2 px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="-mx-2 mt-4 snap-x snap-mandatory overflow-x-auto motion-safe:scroll-smooth scroll-px-2 px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </div>
