@@ -4,6 +4,8 @@ import type { NextConfig } from "next";
 const apiUrl = process.env.API_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
+  // 운영 이미지(Dockerfile)는 node_modules 없이 .next/standalone의 server.js만 띄운다
+  output: "standalone",
   // 브라우저는 같은 출처(/api)로만 부르고 Next가 백엔드로 넘긴다. 운영은 Nginx가 /api를 먼저 가져가므로 이 설정을 거치지 않는다
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiUrl}/api/:path*` }];

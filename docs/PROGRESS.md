@@ -43,10 +43,28 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
   - [ ] 사용자 후기 실제 기능: 후기 API(작성은 로그인 뒤)
 - [ ] 배포
   - [x] CI: PR·main 푸시마다 린트·빌드(`.github/workflows/ci.yml`), main 브랜치 보호 (PR #5)
-  - [ ] CD: Dockerfile, ECR 푸시, EC2 `WEB_TAG` 교체. 운영 compose·Nginx(백엔드 레포)가 생긴 뒤
+  - [ ] CD: Dockerfile(standalone), web 전용 compose·`deploy-web.sh`, `ci.yml` deploy(ECR `alkkuni-web` → SSM), `robots.txt` 수집 차단 (브랜치 `feat/deploy`)
+  - [ ] CloudFront·도메인(백엔드 Nginx PR과 콘솔 작업, 백엔드 `docs/PROGRESS.md` 2단계)
 - [ ] 로그인 이후: 로그인, 내 서랍, 알림 설정
+- [ ] **검색 엔진 공개** (2026-11-18 정함. 로그인이 완성된 뒤. 그 전엔 공개 사이트지만 검색으로는 들어오지 않게 막아 둔다)
+  - 여는 조건: 소셜 로그인 3종(카카오·네이버·구글)이 운영 도메인에서 동작하고, 내 서랍까지 쓸 수 있을 때. 첫 방문자가 검색으로 들어와 로그인에서 막히면 다시 오지 않는다.
+  - [ ] `app/robots.ts`: `disallow: "/"`를 `allow: "/"`로, 로그인 뒤 화면(내 서랍·알림 설정 등)만 `disallow`. `sitemap` 주소를 넣는다
+  - [ ] 백엔드 Nginx의 `X-Robots-Tag: noindex` 제거(백엔드 PR). 이게 남아 있으면 robots.txt를 열어도 색인되지 않는다
+  - [ ] `app/sitemap.ts`: 메인·`/explore`와 제품 상세(제품 수가 많아 백엔드에 id 목록 API가 필요한지 그때 본다)
+  - [ ] 없는 제품 상세가 HTTP 200인 것을 404로(아래 "다음 할 일"의 기존 메모). 안 고치면 빈 페이지가 색인된다
+  - [ ] 페이지별 `title`·`description`(검색 결과 문구), 대표 이미지(`opengraph-image`)
+  - [ ] Google Search Console·네이버 서치어드바이저에 사이트 등록(도메인 TXT 인증은 Route 53), sitemap 제출
+  - 확인: `curl -I https://<도메인>/`에 `X-Robots-Tag`가 없고, `/robots.txt`가 Allow, Search Console URL 검사가 "색인 생성 가능"
 
 ## 다음 할 일
+
+### 배포 (브랜치 `feat/deploy`, 2026-11-18)
+
+백엔드 `docs/PLANNING.md` "배포"의 레포별 분리를 따른다. web은 이 레포의 compose(프로젝트 `alkkuni-web`)로 EC2 `/opt/alkkuni/web/`에서 따로 뜨고, 백엔드 네트워크 `alkkuni_default`에 들어가 Nginx가 `web:3000`으로 찾는다. AWS 준비(ECR `alkkuni-web`, EC2 역할 pull 권한, 배포 역할 `alkkuni-web-deploy`, 레포 Secrets)는 2026-11-18 끝났다.
+
+- 검증 기준
+  - 로컬: `npm run lint`, 백엔드 없이 `npm run build`, `docker build`. 운영과 같은 모양(네트워크 `alkkuni_default` + 백엔드 `default.conf` Nginx + `api` 별칭)에 `deploy/compose.web.yaml`로 띄워 healthy, Nginx 거쳐 `/robots.txt`·화면·`/api` 200.
+  - 운영(머지 뒤 첫 배포): Actions deploy 성공, EC2에서 `curl localhost/` 200, `docker stats`로 web 메모리, 새벽 batch 실행 중 합계(백엔드 PROGRESS "사이트 공개" 검증). 백엔드 재배포 뒤에도 web이 그대로인지.
 
 ### 헤더·메인 초안 1번 (브랜치 `feat/header-search`, PR #11, 2026-11-13)
 
@@ -79,6 +97,17 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 - 2026-11-09 레포 기본 설정 (PR #1)
 
 ## 작업 로그
+
+### 2026-11-18
+
+- 배포 (`feat/deploy`)
+  - 사이트를 일찍 띄워 실제로 쓰며 버그를 고치려고 배포를 메인 통계·소식보다 당겼다(백엔드 PROGRESS 2026-11-18). 검색 엔진에는 로그인이 완성될 때까지 막는다(`app/robots.ts`, 위 "검색 엔진 공개").
+  - compose·태그 파일을 백엔드와 나눴다. 하나로 두면 백엔드 배포가 `.env`를 다시 만들거나 롤백하면서 `WEB_TAG`를 지우거나 옛 값으로 되돌린다. web compose를 이 레포에 둬서 이미지와 같은 sha의 배포 파일을 받는다. `deploy-web.sh`는 백엔드 `deploy.sh`와 같은 흐름(.next에 받기 → pull 성공 뒤 교체 → 실패하면 .prev로 롤백)이고 `/opt/alkkuni/web/` 아래만 쓴다.
+  - 레지스트리 주소는 백엔드와 같은 Parameter Store `/alkkuni/prod/IMAGE_REGISTRY`를 읽는다. 백엔드 `.env`를 읽으면 그 파일 형식에 묶인다.
+  - 이미지 정리는 `alkkuni-web` 저장소의 지금 태그 외만 지운다. `docker image prune -a`는 저장소로 거를 수 없어 백엔드 batch 이미지(실행 중이 아님)까지 지운다.
+  - 헬스 체크는 `/robots.txt`(백엔드를 부르지 않는 정적 경로). `/`는 API를 불러서, api가 죽어 있으면 web 교체·롤백까지 실패한다.
+  - CI는 `deploy.yml`로 나누지 않고 `ci.yml`에 deploy job을 붙였다(`needs: build`로 린트·빌드가 통과한 커밋만 배포, 백엔드 `ci-cd.yml`과 같은 구조). main 실행은 배포 중 끊기지 않게 취소하지 않는다.
+  - `mem_limit: 256m`: 로컬(arm64)에서 위 운영 모양으로 띄우고 화면 400번(동시 10, 메인·검색·성분 목록·상세)을 불렀을 때 피크 125MiB, 시작 직후 57MiB, OOM·재시작 0. 운영에서 batch와 겹칠 때 다시 잰다.
 
 ### 2026-11-13
 

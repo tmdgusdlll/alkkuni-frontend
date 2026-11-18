@@ -1,0 +1,34 @@
+# 운영 web(Next.js). EC2 /opt/alkkuni/web/에서 deploy-web.sh가 띄운다. 값은 같은 폴더 web.env(IMAGE_REGISTRY, WEB_TAG).
+# 백엔드 레포 compose.prod.yaml(프로젝트 alkkuni: nginx·api·batch·db)과 프로젝트·태그 파일을 나눠, 한쪽 배포·롤백이 다른 쪽을 건드리지 않는다.
+# 백엔드와의 약속: 네트워크 alkkuni_default(백엔드 프로젝트 기본 네트워크), 서비스 이름 web, 포트 3000.
+# 백엔드 nginx가 web:3000으로 찾고, web은 api:8080으로 백엔드를 부른다. 바꾸면 백엔드 레포도 함께 고친다.
+# 백엔드가 떠 있어야(네트워크가 있어야) 뜬다.
+name: alkkuni-web
+
+services:
+  web:
+    image: ${IMAGE_REGISTRY:?}/alkkuni-web:${WEB_TAG:?}
+    environment:
+      # 서버 컴포넌트가 부르는 백엔드 주소(lib/api.ts). 브라우저의 /api는 nginx가 api로 넘긴다
+      API_URL: http://api:8080
+    healthcheck:
+      # robots.txt는 백엔드를 부르지 않아, api가 죽어도 web 교체가 막히지 않는다
+      test: ["CMD-SHELL", "wget -qO /dev/null http://127.0.0.1:3000/robots.txt"]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+    # 한도 합계(EC2 2GB 중): 백엔드 compose 1,856m(api 640 + batch 640 + db 512 + nginx 64) + web.
+    # web 값의 근거는 docs/PROGRESS.md 작업 로그(2026-11-18). 운영에서 batch 실행 중 docker stats로 다시 잰다.
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  default:
+    name: alkkuni_default
+    external: true
