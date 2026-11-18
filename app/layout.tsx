@@ -14,6 +14,8 @@ const pretendard = localFont({
 export const metadata: Metadata = {
   title: "알꾼이",
   description: "식약처 공공데이터로 영양제 성분과 함량을 비교해요",
+  // 로그인이 완성될 때까지 검색 색인 금지(모든 페이지가 물려받음). 여는 방법은 docs/PROGRESS.md "검색 엔진 공개"
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
