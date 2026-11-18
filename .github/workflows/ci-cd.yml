@@ -1,7 +1,7 @@
 # build(린트·빌드, 타입 검사 포함)는 PR·main 푸시 모두, deploy는 main 푸시에서 build가 성공했을 때만 돈다(백엔드 ci-cd.yml과 같은 구조).
 # job 이름 build는 main 브랜치 보호의 필수 상태 검사 이름이다(백엔드와 같음). 바꾸면 보호 설정도 같이 바꾼다.
 # AWS 권한(id-token: write)은 deploy job에만 준다. IAM 역할 alkkuni-web-deploy의 신뢰 정책은 이 레포 main만 받는다.
-name: CI
+name: CI/CD
 
 on:
   pull_request:
@@ -14,7 +14,7 @@ permissions:
 # PR은 새 커밋이 오면 이전 실행을 버린다. main은 배포 중에 끊기면 서버가 어중간한 상태로 남아서 취소하지 않는다.
 # main 실행은 이 그룹으로 한 번에 하나씩 돌아 배포가 겹치지 않는다(대기는 최신 하나만 남는다).
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-cd-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:

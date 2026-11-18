@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# EC2에서 root로 실행한다. ci.yml deploy가 SSM으로 이 커밋의 이 파일을 받아 부른다.
+# EC2에서 root로 실행한다. ci-cd.yml deploy가 SSM으로 이 커밋의 이 파일을 받아 부른다.
 # 사용: bash /opt/alkkuni/web/deploy-web.sh <커밋 sha>
 # 흐름은 백엔드 deploy/deploy.sh와 같다: 새 파일을 .next/에 받고, 이미지 pull이 성공한 뒤에만 교체하고,
 # 교체 뒤 실패하면 직전 파일(.prev)로 되돌린다. 더 이전으로 돌리려면 그 sha로 다시 실행한다(ECR은 최근 10개만 둔다).

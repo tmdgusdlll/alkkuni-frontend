@@ -1,5 +1,5 @@
-# 운영 web 이미지. CI(ci.yml deploy)가 ARM 러너에서 linux/arm64로 빌드해 ECR alkkuni-web에 올린다.
-# 빌드에 백엔드가 필요 없다(API 호출은 요청 때만 일어남, ci.yml 참고). API_URL은 실행 때 compose가 넣는다.
+# 운영 web 이미지. CI(ci-cd.yml deploy)가 ARM 러너에서 linux/arm64로 빌드해 ECR alkkuni-web에 올린다.
+# 빌드에 백엔드가 필요 없다(API 호출은 요청 때만 일어남, ci-cd.yml 참고). API_URL은 실행 때 compose가 넣는다.
 FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

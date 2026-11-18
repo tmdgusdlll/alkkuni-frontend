@@ -42,8 +42,8 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
   - [ ] AI 도우미(헤더 메뉴·바로가기·오른쪽 아래 플로팅 버튼): API 없음
   - [ ] 사용자 후기 실제 기능: 후기 API(작성은 로그인 뒤)
 - [ ] 배포
-  - [x] CI: PR·main 푸시마다 린트·빌드(`.github/workflows/ci.yml`), main 브랜치 보호 (PR #5)
-  - [ ] CD: Dockerfile(standalone), web 전용 compose·`deploy-web.sh`, `ci.yml` deploy(ECR `alkkuni-web` → SSM), 검색 색인 차단(`noindex`) (PR #12, 브랜치 `feat/deploy`)
+  - [x] CI: PR·main 푸시마다 린트·빌드(`.github/workflows/ci-cd.yml`, PR #12에서 이름 변경), main 브랜치 보호 (PR #5)
+  - [ ] CD: Dockerfile(standalone), web 전용 compose·`deploy-web.sh`, `ci-cd.yml` deploy(ECR `alkkuni-web` → SSM), 검색 색인 차단(`noindex`) (PR #12, 브랜치 `feat/deploy`)
   - [ ] CloudFront·도메인(백엔드 Nginx PR과 콘솔 작업, 백엔드 `docs/PROGRESS.md` 2단계)
 - [ ] 로그인 이후: 로그인, 내 서랍, 알림 설정
 - [ ] **검색 엔진 공개** (2026-11-18 정함. 로그인이 완성된 뒤. 그 전엔 공개 사이트지만 검색으로는 들어오지 않게 막아 둔다)
@@ -107,7 +107,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
   - 레지스트리 주소는 백엔드와 같은 Parameter Store `/alkkuni/prod/IMAGE_REGISTRY`를 읽는다. 백엔드 `.env`를 읽으면 그 파일 형식에 묶인다.
   - 이미지 정리는 `alkkuni-web` 저장소의 지금 태그 외만 지운다. `docker image prune -a`는 저장소로 거를 수 없어 백엔드 batch 이미지(실행 중이 아님)까지 지운다.
   - 헬스 체크는 `/robots.txt`(백엔드를 부르지 않는 정적 경로). `/`는 API를 불러서, api가 죽어 있으면 web 교체·롤백까지 실패한다.
-  - CI는 `deploy.yml`로 나누지 않고 `ci.yml`에 deploy job을 붙였다(`needs: build`로 린트·빌드가 통과한 커밋만 배포, 백엔드 `ci-cd.yml`과 같은 구조). main 실행은 배포 중 끊기지 않게 취소하지 않는다.
+  - CI는 `deploy.yml`로 나누지 않고 기존 `ci.yml`에 deploy job을 붙이고 백엔드와 같게 `ci-cd.yml`(워크플로 `CI/CD`)로 이름을 바꿨다(`needs: build`로 린트·빌드가 통과한 커밋만 배포, 백엔드 `ci-cd.yml`과 같은 구조). main 실행은 배포 중 끊기지 않게 취소하지 않는다.
   - SSM 실행 제한·CI 대기는 백엔드와 같은 10분. 처음 5분으로 뒀는데 최악(pull + 교체 대기 120초 + 롤백 대기 120초)이 넘을 수 있어, 롤백 도중 끊기거나 CI가 먼저 끝나 다음 배포와 겹친다(`/code-review`).
   - `mem_limit: 256m`: 로컬(arm64)에서 위 운영 모양으로 띄우고 화면 400번(동시 10, 메인·검색·성분 목록·상세)을 불렀을 때 피크 125MiB, 시작 직후 57MiB, OOM·재시작 0. 운영에서 batch와 겹칠 때 다시 잰다.
 
