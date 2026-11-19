@@ -10,7 +10,10 @@ import { formatAmount, productMeta } from "@/lib/format";
 import type { ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
 
 // 검색어를 제목에 넣으려면 generateMetadata가 searchParams를 기다려 페이지 틀까지 요청 때 만들어진다. 고정 제목으로 둔다
-export const metadata: Metadata = { title: "제품 검색" };
+export const metadata: Metadata = {
+  title: "제품 검색",
+  description: "제품명·브랜드·성분으로 영양제를 찾고 함량을 확인해요",
+};
 
 const PAGE_SIZE = 20;
 // 백엔드 page 상한(ProductController MAX_PAGE)
