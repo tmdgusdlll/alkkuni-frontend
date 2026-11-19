@@ -18,9 +18,23 @@ const TOP = 3;
 // ("추천"은 DESIGN.md 금지어). 검색어로 넘겨 성분명·제품명 어느 쪽이든 찾게 한다(오메가3·유산균은 사전 성분명이 아님)
 const HERO_CHIPS = ["비타민D", "마그네슘", "오메가3", "루테인", "유산균"];
 
+// 검색 엔진에 사이트 이름을 알려 준다. 도메인에 이름이 없어 "알꾼이"·"알꾼" 검색과 이어지게 한다(Google "사이트 이름")
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "알꾼이",
+  alternateName: ["알꾼", "alkkuni"],
+  url: "https://kuromi.click/",
+};
+
 export default function Home() {
   return (
     <main>
+      <script
+        type="application/ld+json"
+        // 고정 값이지만 Next 문서대로 "<"를 이스케이프해 둔다
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD).replace(/</g, "\\u003c") }}
+      />
       <div className="bg-brand-50">
         <div className="mx-auto flex max-w-[1200px] flex-col items-center px-6 py-24 text-center">
           <h1 className="text-[40px] font-extrabold tracking-tight text-ink">어떤 영양제가 궁금하세요?</h1>

@@ -11,7 +11,10 @@ import { getBrands, getCategories, getExplore, getIngredients } from "@/lib/quer
 import { productMeta } from "@/lib/format";
 import type { BrandItem, CategoryItem, ErrorBody, IngredientItem, ProductExploreResponse, ProductSearchResponse } from "@/types/api";
 
-export const metadata: Metadata = { title: "성분별 제품 목록 - 알꾼이" };
+export const metadata: Metadata = {
+  title: "성분별 제품 목록",
+  description: "성분을 골라 영양제의 1일 함량을 나란히 비교해요",
+};
 
 // 아래 비교 칸이 보이게 짧게 둔다(DESIGN.md 8.2)
 const PAGE_SIZE = 10;

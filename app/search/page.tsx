@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
@@ -7,6 +8,9 @@ import { SearchBar } from "@/components/SearchBar";
 import { api } from "@/lib/api";
 import { formatAmount, productMeta } from "@/lib/format";
 import type { ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
+
+// 검색어를 제목에 넣으려면 generateMetadata가 searchParams를 기다려 페이지 틀까지 요청 때 만들어진다. 고정 제목으로 둔다
+export const metadata: Metadata = { title: "제품 검색" };
 
 const PAGE_SIZE = 20;
 // 백엔드 page 상한(ProductController MAX_PAGE)
