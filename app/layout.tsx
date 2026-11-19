@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   // og:title·og:description은 적지 않는다. 비워 두면 Next가 페이지별 title·description으로 채운다.
   // 페이지에서 openGraph를 주지 않는다(얕게 합쳐져 여기 값과 og:image가 통째로 사라짐)
   openGraph: { siteName: "알꾼이", locale: "ko_KR", type: "website" },
+  // 네이버 서치어드바이저 소유 확인(네이버는 DNS TXT 확인이 없어 메타 태그). 지우면 소유 확인이 풀린다.
+  // Google Search Console은 Route 53 TXT로 확인해 여기 넣지 않는다
+  verification: { other: { "naver-site-verification": "f3951daae70a7c14e126390cb56511670a6b49ca" } },
   // 로그인이 완성될 때까지 검색 색인 금지(모든 페이지가 물려받음). 여는 방법은 docs/PROGRESS.md "검색 엔진 공개"
   robots: { index: false, follow: false },
 };
