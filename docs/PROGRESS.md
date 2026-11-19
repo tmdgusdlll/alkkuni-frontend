@@ -50,7 +50,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
   - 여는 조건: 소셜 로그인 3종(카카오·네이버·구글)이 운영 도메인에서 동작하고, 내 서랍까지 쓸 수 있을 때. 첫 방문자가 검색으로 들어와 로그인에서 막히면 다시 오지 않는다.
   - **미리 할 것** (noindex 상태에서도 할 수 있음, 2026-11-19 정함)
     - [x] 이름·메타데이터: title 템플릿(`%s | 알꾼이`), 페이지별 `title`·`description`, `openGraph.siteName`, `metadataBase`, 대표 이미지(`app/opengraph-image.png`), 메인 `WebSite` JSON-LD(`alternateName` 알꾼·alkkuni). 도메인에 서비스 이름이 없어서다. 카카오톡 미리보기·다음 검색 크롤러에도 `<head>`에 메타데이터가 들어가게 `htmlLimitedBots`에 더했다 (PR #13)
-    - [ ] Google Search Console·네이버 서치어드바이저에 사이트 등록(도메인 TXT 인증은 Route 53). sitemap 제출은 로그인 뒤
+    - [x] Google Search Console·네이버 서치어드바이저에 사이트 등록. Google은 도메인 속성(Route 53 TXT, 2026-11-06 OAuth 준비 때 이미 확인), 네이버는 DNS 확인이 없어 `naver-site-verification` 메타 태그(`app/layout.tsx`). sitemap 제출은 로그인 뒤
     - [ ] 대표 이미지 교체: 회수 알림이 나오면(백엔드 4단계) 오른쪽 위 함량 비교 카드를 "식약처 공공데이터"·"회수 알림" 배지로 바꾼다(2026-11-19 시안 C3). 그 전에 넣으면 없는 기능을 광고하게 된다
   - **로그인 뒤**
     - [ ] `app/layout.tsx` metadata의 `robots: { index: false, follow: false }`를 지운다(모든 페이지가 물려받는 noindex). 로그인 뒤 화면(내 서랍·알림 설정 등)은 그 페이지에만 noindex를 남긴다
