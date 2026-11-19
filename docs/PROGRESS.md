@@ -48,13 +48,17 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 - [ ] 로그인 이후: 로그인, 내 서랍, 알림 설정
 - [ ] **검색 엔진 공개** (2026-11-18 정함. 로그인이 완성된 뒤. 그 전엔 공개 사이트지만 검색으로는 들어오지 않게 막아 둔다)
   - 여는 조건: 소셜 로그인 3종(카카오·네이버·구글)이 운영 도메인에서 동작하고, 내 서랍까지 쓸 수 있을 때. 첫 방문자가 검색으로 들어와 로그인에서 막히면 다시 오지 않는다.
-  - [ ] `app/layout.tsx` metadata의 `robots: { index: false, follow: false }`를 지운다(모든 페이지가 물려받는 noindex). 로그인 뒤 화면(내 서랍·알림 설정 등)은 그 페이지에만 noindex를 남긴다
-  - [ ] `app/robots.ts`에 `sitemap` 주소를 넣는다. `disallow`로 색인을 막으려 하지 않는다(크롤러가 noindex를 못 읽어 외부 링크로 알려진 URL이 "URL만 있는 결과"로 색인됨)
-  - [ ] 백엔드 Nginx(또는 CloudFront)에 `X-Robots-Tag: noindex`를 넣었다면 제거(백엔드 PR). 남아 있으면 metadata를 지워도 색인되지 않는다
-  - [ ] `app/sitemap.ts`: 메인·`/explore`와 제품 상세(제품 수가 많아 백엔드에 id 목록 API가 필요한지 그때 본다)
-  - [ ] 없는 제품 상세가 HTTP 200인 것을 404로(아래 "다음 할 일"의 기존 메모). 안 고치면 빈 페이지가 색인된다
-  - [ ] 페이지별 `title`·`description`(검색 결과 문구), 대표 이미지(`opengraph-image`)
-  - [ ] Google Search Console·네이버 서치어드바이저에 사이트 등록(도메인 TXT 인증은 Route 53), sitemap 제출
+  - **미리 할 것** (noindex 상태에서도 할 수 있음, 2026-11-19 정함)
+    - [x] 이름·메타데이터: title 템플릿(`%s | 알꾼이`), 페이지별 `title`·`description`, `openGraph.siteName`, `metadataBase`, 대표 이미지(`app/opengraph-image.png`), 메인 `WebSite` JSON-LD(`alternateName` 알꾼·alkkuni). 도메인에 서비스 이름이 없어서다. 카카오톡 미리보기·다음 검색 크롤러에도 `<head>`에 메타데이터가 들어가게 `htmlLimitedBots`에 더했다 (PR #13)
+    - [ ] Google Search Console·네이버 서치어드바이저에 사이트 등록(도메인 TXT 인증은 Route 53). sitemap 제출은 로그인 뒤
+    - [ ] 대표 이미지 교체: 회수 알림이 나오면(백엔드 4단계) 오른쪽 위 함량 비교 카드를 "식약처 공공데이터"·"회수 알림" 배지로 바꾼다(2026-11-19 시안 C3). 그 전에 넣으면 없는 기능을 광고하게 된다
+  - **로그인 뒤**
+    - [ ] `app/layout.tsx` metadata의 `robots: { index: false, follow: false }`를 지운다(모든 페이지가 물려받는 noindex). 로그인 뒤 화면(내 서랍·알림 설정 등)은 그 페이지에만 noindex를 남긴다
+    - [ ] `app/robots.ts`에 `sitemap` 주소를 넣는다. `disallow`로 색인을 막으려 하지 않는다(크롤러가 noindex를 못 읽어 외부 링크로 알려진 URL이 "URL만 있는 결과"로 색인됨)
+    - [ ] 백엔드 Nginx(또는 CloudFront)에 `X-Robots-Tag: noindex`를 넣었다면 제거(백엔드 PR). 남아 있으면 metadata를 지워도 색인되지 않는다
+    - [ ] `app/sitemap.ts`: 메인·`/explore`와 제품 상세(제품 수가 많아 백엔드에 id 목록 API가 필요한지 그때 본다)
+    - [ ] 없는 제품 상세가 HTTP 200인 것을 404로(아래 "다음 할 일"의 기존 메모). 안 고치면 빈 페이지가 색인된다
+    - [ ] Search Console·서치어드바이저에 sitemap 제출
   - 확인: `curl -s https://<도메인>/ | grep noindex`가 비고 `curl -I`에 `X-Robots-Tag`가 없음, Search Console URL 검사가 "색인 생성 가능"
 
 ## 다음 할 일
@@ -98,6 +102,14 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
 - 2026-11-09 레포 기본 설정 (PR #1)
 
 ## 작업 로그
+
+### 2026-11-19
+
+- 이름·메타데이터 (`feat/seo-metadata`)
+  - 도메인(`kuromi.click`)에 서비스 이름이 없어, 검색 결과·공유 카드에서 "알꾼이"가 보이게 하는 작업을 로그인 전에 당겼다. noindex는 그대로다.
+  - 대표 이미지는 코드(`opengraph-image.tsx`, `ImageResponse`) 대신 PNG 파일로 넣었다. 시안을 HTML로 그려 고른 그림을 그대로 쓰고, 한글 폰트(otf) 로딩 코드가 필요 없다. 문구는 "내 영양제, 성분까지 알고 먹자", 오른쪽 위는 함량 비교 카드(시안 C1). 회수 알림 배지 시안(C3)은 기능이 나오면 바꾼다(위 "미리 할 것").
+  - metadata는 얕게 합쳐진다. 페이지가 `openGraph`를 주면 layout의 `openGraph`(siteName·og:image)가 통째로 사라진다. 그래서 layout의 `openGraph`에 title·description을 적지 않고, 페이지는 `title`·`description`만 준다. Next가 마지막에 페이지 값으로 og:title·og:description을 채운다.
+  - 검색 페이지 제목에 검색어를 넣지 않았다. `generateMetadata`가 `searchParams`를 기다리면 페이지 틀까지 요청 때 만들어진다.
 
 ### 2026-11-18
 

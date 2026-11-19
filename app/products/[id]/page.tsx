@@ -17,8 +17,13 @@ const getProduct = cache(async (id: string) =>
 
 export async function generateMetadata(props: PageProps<"/products/[id]">): Promise<Metadata> {
   const res = await getProduct((await props.params).id);
-  // 에러면 기본 제목(layout의 "알꾼이")을 그대로 둔다. 화면은 본문이 처리한다
-  return res && "data" in res ? { title: `${res.data.name} - 알꾼이` } : {};
+  // 에러면 기본 제목(layout default)을 그대로 둔다. 화면은 본문이 처리한다
+  if (!res || !("data" in res)) return {};
+  const { name, manufacturer, ingredients } = res.data;
+  // 검색 결과 문구: "제조사 · 성분 3개 함량을 …". 같은 성분 행이 여러 개일 수 있어 이름은 한 번씩만
+  const top = [...new Set(ingredients.map((i) => i.name))].slice(0, 3).join(", ");
+  const description = [manufacturer, top && `${top} 함량을 식약처 공공데이터로 확인해요`].filter(Boolean).join(" · ");
+  return { title: name, ...(description && { description }) };
 }
 
 // DESIGN.md 8.4. params는 요청 때만 알 수 있어 Suspense 안에서 읽는다(cacheComponents). 바깥 틀은 미리 만들어진다
