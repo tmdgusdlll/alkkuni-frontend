@@ -54,7 +54,7 @@ API가 이미 있는 공개 화면부터 만든다. 로그인이 필요한 화�
     - [ ] 대표 이미지 교체: 회수 알림이 나오면(백엔드 4단계) 오른쪽 위 함량 비교 카드를 "식약처 공공데이터"·"회수 알림" 배지로 바꾼다(2026-11-19 시안 C3). 그 전에 넣으면 없는 기능을 광고하게 된다
   - **로그인 뒤**
     - [ ] `app/layout.tsx` metadata의 `robots: { index: false, follow: false }`를 지운다(모든 페이지가 물려받는 noindex). 로그인 뒤 화면(내 서랍·알림 설정 등)은 그 페이지에만 noindex를 남긴다
-    - [ ] `app/robots.ts`에 `sitemap` 주소를 넣는다. `disallow`로 색인을 막으려 하지 않는다(크롤러가 noindex를 못 읽어 외부 링크로 알려진 URL이 "URL만 있는 결과"로 색인됨). 이미 있는 `GPTBot` 전체·`/explore` Disallow는 크롤링 양을 막는 용도라 그대로 둔다(2026-11-21)
+    - [ ] `app/robots.ts`에 `sitemap` 주소를 넣는다. `disallow`로 색인을 막으려 하지 않는다(크롤러가 noindex를 못 읽어 외부 링크로 알려진 URL이 "URL만 있는 결과"로 색인됨). 이미 있는 `GPTBot` 전체·`/explore?`(쿼리 붙은 조합 URL) Disallow는 크롤링 양을 막는 용도라 그대로 둔다(2026-11-21)
     - [ ] 백엔드 Nginx(또는 CloudFront)에 `X-Robots-Tag: noindex`를 넣었다면 제거(백엔드 PR). 남아 있으면 metadata를 지워도 색인되지 않는다
     - [ ] `app/sitemap.ts`: 메인·`/explore`와 제품 상세(제품 수가 많아 백엔드에 id 목록 API가 필요한지 그때 본다)
     - [ ] 없는 제품 상세가 HTTP 200인 것을 404로(아래 "다음 할 일"의 기존 메모). 안 고치면 빈 페이지가 색인된다

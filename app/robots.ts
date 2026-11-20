@@ -8,10 +8,11 @@ import type { MetadataRoute } from "next";
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
-      // AI 학습용 크롤러. 검색 유입과 상관없어 전체를 막는다
+      // 실제로 몰려온 GPTBot(OpenAI 학습용)만 막는다. 다른 학습용 크롤러는 로그에 나타나면 여기에 더한다
       { userAgent: "GPTBot", disallow: "/" },
-      // /explore는 제품 id·성분 조합마다 URL이 생겨 끝이 없고, 검색 결과에 올릴 페이지도 아니다
-      { userAgent: "*", allow: "/", disallow: "/explore" },
+      // /explore 쿼리(담은 제품·성분·필터)는 조합마다 URL이 생겨 끝이 없다. 맨 /explore는 sitemap에 넣을 화면이라 열어 둔다.
+      // allow: "/"는 쓰지 않는다. 기본이 허용이고, 첫 일치 규칙을 쓰는 크롤러는 Allow: /에 먼저 걸린다
+      { userAgent: "*", disallow: "/explore?" },
     ],
   };
 }
