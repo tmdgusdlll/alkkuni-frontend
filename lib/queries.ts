@@ -1,6 +1,7 @@
 import { cacheLife } from "next/cache";
+import { connection } from "next/server";
 import { api } from "@/lib/api";
-import type { BrandItem, CategoryItem, IngredientItem, ProductExploreResponse } from "@/types/api";
+import type { BrandItem, CategoryItem, IngredientItem, ProductExploreResponse, StatsResponse } from "@/types/api";
 
 // 성분 사전(215개)은 Flyway로만 바뀌어 서버 메모리에 캐시한다. 조건이 바뀔 때마다 앞에 왕복이 붙지 않게
 export async function getIngredients() {
@@ -38,4 +39,26 @@ export async function getExplore(query: string) {
   "use cache";
   cacheLife("minutes");
   return api<ProductExploreResponse>(`/api/products/explore?${query}`);
+}
+
+// 메인 "공식 데이터"·푸터 기준일. 하루 한 번(새벽 수집) 바뀐다. api의 Cache-Control은 서버 호출에 효과가 없어,
+// 감싸지 않으면 모든 화면 요청(푸터)마다 백엔드 COUNT가 돈다
+async function getStats() {
+  "use cache";
+  cacheLife("hours");
+  const res = await api<StatsResponse>("/api/stats");
+  if ("error" in res) throw new Error(`통계를 불러오지 못했습니다: ${res.error.code}`);
+  return res.data;
+}
+
+// 실패하면 null. 숫자 칸·기준일만 숨기고 화면은 그대로 둔다(던진 결과는 캐시에 남지 않아 다음 요청이 다시 부른다)
+export async function getStatsOrNull(where: string) {
+  // 요청 때 부른다. 빌드 때(prerender) 백엔드를 부르면 백엔드 없는 CI에서 빌드가 깨진다
+  await connection();
+  try {
+    return await getStats();
+  } catch (e) {
+    console.error(`${where}: 통계를 불러오지 못했습니다`, e);
+    return null;
+  }
 }

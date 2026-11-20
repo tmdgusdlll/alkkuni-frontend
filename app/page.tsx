@@ -5,8 +5,8 @@ import { AmountCell, barMaxOf } from "@/components/AmountCell";
 import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
 import { Carousel } from "@/components/Carousel";
 import { SearchBar } from "@/components/SearchBar";
-import { productMeta } from "@/lib/format";
-import { getExplore, getIngredients } from "@/lib/queries";
+import { formatDate, productMeta } from "@/lib/format";
+import { getExplore, getIngredients, getStatsOrNull } from "@/lib/queries";
 import type { IngredientItem } from "@/types/api";
 
 // 인기 성분(고정). 연결된 제품 수가 많은 순서(로컬 DB, 2026-11-12). id는 환경마다 다를 수 있어 이름으로 찾는다.
@@ -274,21 +274,49 @@ function News() {
   );
 }
 
-// 초안 1번 "공식 데이터로 만들어요". 초안의 수록 제품 수·데이터 기준일 칸은 내려주는 API가 없어 고정 문구 두 칸만 둔다(PROGRESS.md "메인 초안 1번 나머지")
+// 초안 1번 "공식 데이터로 만들어요"(DESIGN.md 5번: 수록 제품 수 · 매일 갱신 · 기준일 · 출처 표기).
+// 숫자 두 칸은 통계 API에서 받는다. 불러오는 동안과 실패·null이면 그 칸만 빼고 고정 문구 두 칸은 그대로 둔다
 function OfficialData() {
   return (
     <section className="flex-[1_1_340px] rounded-panel bg-brand-50 p-6">
       <h2 className="text-xl font-extrabold tracking-tight text-ink">공식 데이터로 만들어요</h2>
       <p className="mt-2 text-sm leading-relaxed text-ink-soft">식품의약품안전처 식품안전나라 공공데이터를 그대로 옮겨 보여드려요.</p>
-      <dl className="mt-5 grid grid-cols-2 gap-3">
-        <StatCard value="매일" label="데이터 갱신" />
-        <StatCard value="식약처" label="모든 화면에 출처 표기" />
-      </dl>
+      <Suspense fallback={<StatCards productCount={null} dataDate={null} />}>
+        <LiveStatCards />
+      </Suspense>
     </section>
   );
 }
 
-function StatCard({ value, label }: { value: string; label: string }) {
+async function LiveStatCards() {
+  const stats = await getStatsOrNull("메인 공식 데이터");
+  return <StatCards productCount={stats?.productCount ?? null} dataDate={stats?.dataDate ?? null} />;
+}
+
+function StatCards({ productCount, dataDate }: { productCount: number | null; dataDate: string | null }) {
+  return (
+    <dl className="mt-5 grid grid-cols-2 gap-3">
+      {productCount != null && <StatCard value={productCount.toLocaleString("ko-KR")} label="수록 제품" />}
+      <StatCard value="매일" label="데이터 갱신" />
+      {/* "2026.11.06"은 폰에서 칸보다 넓다. 칸이 좁을 때만 연도 뒤에서 줄을 바꾼다 */}
+      {dataDate && (
+        <StatCard
+          value={
+            <>
+              {formatDate(dataDate).slice(0, 5)}
+              <wbr />
+              {formatDate(dataDate).slice(5)}
+            </>
+          }
+          label="데이터 기준일"
+        />
+      )}
+      <StatCard value="식약처" label="모든 화면에 출처 표기" />
+    </dl>
+  );
+}
+
+function StatCard({ value, label }: { value: React.ReactNode; label: string }) {
   return (
     <div className="flex flex-col-reverse justify-end rounded-card bg-white px-5 py-4">
       <dt className="mt-1 text-sm text-ink-muted">{label}</dt>

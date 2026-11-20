@@ -119,6 +119,9 @@ export type ProductDetailResponse = BrandFields & {
   recalls: DetailRecall[];
 };
 
+// GET /api/stats (stats/StatsController.kt). dataDate는 "이 날짜까지 반영"(I0030 커서 - 1일), 첫 적재 전이면 null
+export type StatsResponse = { productCount: number; ingredientCount: number; dataDate: string | null };
+
 // GET /api/ingredients (ingredient/IngredientController.kt). 성분 사전 전체가 이름순으로 온다
 export type IngredientItem = {
   id: number;

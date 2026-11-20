@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { Suspense } from "react";
+import { formatDate } from "@/lib/format";
+import { getStatsOrNull } from "@/lib/queries";
 import { MainNav, NavLinks } from "./MainNav";
 
 // 초안 1번 헤더: 로고 · 메뉴 │ 검색(MainNav가 함께 그림). 로그인 버튼은 로그인(백엔드 3단계) 뒤에 오른쪽 검색 옆에 붙인다
@@ -26,15 +28,23 @@ export function SiteHeader() {
   );
 }
 
-// 출처 표시는 공공데이터 이용 조건이라 모든 화면에 둔다. 데이터 기준일은 내려주는 API가 생기면 붙인다
+// 출처 표시는 공공데이터 이용 조건이라 모든 화면에 둔다. 기준일은 통계 API에서 받고, 못 받으면 그 줄만 숨긴다
 export function SiteFooter() {
   return (
     <footer className="mt-auto bg-surface-gray">
       <div className="mx-auto max-w-[1200px] px-6 py-8 text-sm text-ink-muted">
         <p className="font-bold text-ink">알꾼이</p>
         <p className="mt-2">데이터 출처: 식품의약품안전처 식품안전나라</p>
+        <Suspense>
+          <FooterDataDate />
+        </Suspense>
         <p>알꾼이는 의학적 진단이나 처방을 대신하지 않아요.</p>
       </div>
     </footer>
   );
+}
+
+async function FooterDataDate() {
+  const dataDate = (await getStatsOrNull("푸터 기준일"))?.dataDate;
+  return dataDate ? <p>기준일 {formatDate(dataDate)}</p> : null;
 }
