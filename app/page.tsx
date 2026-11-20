@@ -275,13 +275,14 @@ function News() {
 }
 
 // 초안 1번 "공식 데이터로 만들어요"(DESIGN.md 5번: 수록 제품 수 · 매일 갱신 · 기준일 · 출처 표기).
-// 숫자 두 칸은 통계 API에서 받는다. 불러오는 동안과 실패·null이면 그 칸만 빼고 고정 문구 두 칸은 그대로 둔다
+// 숫자 두 칸은 통계 API에서 받는다. 불러오는 동안은 "—"로 네 칸 자리를 잡아 칸 수·순서가 바뀌지 않게 하고(레이아웃 밀림),
+// 실패·null이면 그 칸만 뺀다
 function OfficialData() {
   return (
     <section className="flex-[1_1_340px] rounded-panel bg-brand-50 p-6">
       <h2 className="text-xl font-extrabold tracking-tight text-ink">공식 데이터로 만들어요</h2>
       <p className="mt-2 text-sm leading-relaxed text-ink-soft">식품의약품안전처 식품안전나라 공공데이터를 그대로 옮겨 보여드려요.</p>
-      <Suspense fallback={<StatCards productCount={null} dataDate={null} />}>
+      <Suspense fallback={<StatCards productCount="—" dataDate="—" />}>
         <LiveStatCards />
       </Suspense>
     </section>
@@ -289,28 +290,29 @@ function OfficialData() {
 }
 
 async function LiveStatCards() {
-  const stats = await getStatsOrNull("메인 공식 데이터");
-  return <StatCards productCount={stats?.productCount ?? null} dataDate={stats?.dataDate ?? null} />;
+  const stats = await getStatsOrNull();
+  return <StatCards productCount={stats?.productCount.toLocaleString("ko-KR")} dataDate={stats?.dataDate ? splitDate(formatDate(stats.dataDate)) : undefined} />;
 }
 
-function StatCards({ productCount, dataDate }: { productCount: number | null; dataDate: string | null }) {
+// "2026.11.06"은 폰에서 칸보다 넓다. 칸이 좁을 때만 연도 뒤에서 줄을 바꾼다
+function splitDate(d: string) {
+  const i = d.indexOf(".") + 1;
+  return (
+    <>
+      {d.slice(0, i)}
+      <wbr />
+      {d.slice(i)}
+    </>
+  );
+}
+
+// 값이 undefined인 칸은 그리지 않는다
+function StatCards({ productCount, dataDate }: { productCount?: React.ReactNode; dataDate?: React.ReactNode }) {
   return (
     <dl className="mt-5 grid grid-cols-2 gap-3">
-      {productCount != null && <StatCard value={productCount.toLocaleString("ko-KR")} label="수록 제품" />}
+      {productCount !== undefined && <StatCard value={productCount} label="수록 제품" />}
       <StatCard value="매일" label="데이터 갱신" />
-      {/* "2026.11.06"은 폰에서 칸보다 넓다. 칸이 좁을 때만 연도 뒤에서 줄을 바꾼다 */}
-      {dataDate && (
-        <StatCard
-          value={
-            <>
-              {formatDate(dataDate).slice(0, 5)}
-              <wbr />
-              {formatDate(dataDate).slice(5)}
-            </>
-          }
-          label="데이터 기준일"
-        />
-      )}
+      {dataDate !== undefined && <StatCard value={dataDate} label="데이터 기준일" />}
       <StatCard value="식약처" label="모든 화면에 출처 표기" />
     </dl>
   );

@@ -42,23 +42,26 @@ export async function getExplore(query: string) {
 }
 
 // 메인 "공식 데이터"·푸터 기준일. 하루 한 번(새벽 수집) 바뀐다. api의 Cache-Control은 서버 호출에 효과가 없어,
-// 감싸지 않으면 모든 화면 요청(푸터)마다 백엔드 COUNT가 돈다
-async function getStats() {
+// 감싸지 않으면 모든 화면 요청(푸터)마다 백엔드 COUNT가 돈다.
+// 성공은 1시간 캐시라 새벽 수집 뒤 기준일이 최대 1시간 남짓 전날로 보인다(기준일이 하루 단위라 받아들인다).
+// 실패도 null로 1분 남짓 캐시한다. 던지면 캐시에 남지 않아, 백엔드가 멈춘 동안 모든 화면 요청이 10초씩 다시 부른다
+async function getStats(): Promise<StatsResponse | null> {
   "use cache";
-  cacheLife("hours");
-  const res = await api<StatsResponse>("/api/stats");
-  if ("error" in res) throw new Error(`통계를 불러오지 못했습니다: ${res.error.code}`);
-  return res.data;
-}
-
-// 실패하면 null. 숫자 칸·기준일만 숨기고 화면은 그대로 둔다(던진 결과는 캐시에 남지 않아 다음 요청이 다시 부른다)
-export async function getStatsOrNull(where: string) {
-  // 요청 때 부른다. 빌드 때(prerender) 백엔드를 부르면 백엔드 없는 CI에서 빌드가 깨진다
-  await connection();
   try {
-    return await getStats();
+    const res = await api<StatsResponse>("/api/stats");
+    if ("error" in res) throw new Error(`통계 API 오류: ${res.error.code}`);
+    cacheLife("hours");
+    return res.data;
   } catch (e) {
-    console.error(`${where}: 통계를 불러오지 못했습니다`, e);
+    console.error("통계를 불러오지 못했습니다. 숫자 칸·푸터 기준일을 숨긴다", e);
+    cacheLife("minutes");
     return null;
   }
+}
+
+// 실패하면 null. 숫자 칸·기준일만 숨기고 화면은 그대로 둔다
+export async function getStatsOrNull() {
+  // 요청 때 부른다. 빌드 때(prerender) 백엔드를 부르면 백엔드 없는 CI에서 빌드가 깨진다
+  await connection();
+  return getStats();
 }

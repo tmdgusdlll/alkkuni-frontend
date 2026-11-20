@@ -45,6 +45,6 @@ export function SiteFooter() {
 }
 
 async function FooterDataDate() {
-  const dataDate = (await getStatsOrNull("푸터 기준일"))?.dataDate;
+  const dataDate = (await getStatsOrNull())?.dataDate;
   return dataDate ? <p>기준일 {formatDate(dataDate)}</p> : null;
 }
