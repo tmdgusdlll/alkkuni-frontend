@@ -4,9 +4,10 @@ import { Suspense } from "react";
 import { AmountCell, barMaxOf } from "@/components/AmountCell";
 import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
 import { Carousel } from "@/components/Carousel";
+import { NewsList } from "@/components/NewsList";
 import { SearchBar } from "@/components/SearchBar";
 import { formatDate, productMeta } from "@/lib/format";
-import { getExplore, getIngredients, getStatsOrNull } from "@/lib/queries";
+import { getExplore, getIngredients, getNews, getStatsOrNull } from "@/lib/queries";
 import type { IngredientItem } from "@/types/api";
 
 // 인기 성분(고정). 연결된 제품 수가 많은 순서(로컬 DB, 2026-11-12). id는 환경마다 다를 수 있어 이름으로 찾는다.
@@ -14,6 +15,8 @@ import type { IngredientItem } from "@/types/api";
 const POPULAR = ["아연", "비타민 D", "비타민 B6", "비타민 B1", "비타민 B2", "비타민 C"];
 // 카드마다 보여줄 제품 수
 const TOP = 3;
+// 메인 영양제 소식 줄 수(초안 1번)
+const NEWS_COUNT = 4;
 // 히어로 검색창 아래 검색 예시 칩(초안 1번 그대로). 아래 "인기 성분 비교"(POPULAR)와 다른 목록이라 '인기 성분'이라 부르지 않는다
 // ("추천"은 DESIGN.md 금지어). 검색어로 넘겨 성분명·제품명 어느 쪽이든 찾게 한다(오메가3·유산균은 사전 성분명이 아님)
 const HERO_CHIPS = ["비타민D", "마그네슘", "오메가3", "루테인", "유산균"];
@@ -248,30 +251,39 @@ function Shortcuts() {
   );
 }
 
-// 초안 1번 "영양제 소식"(회수·공지·기사). 최근 회수 목록 API가 없어 준비 중 칸(DESIGN.md 7.7).
-// 회수 API가 생기면 회수부터 목록으로 채운다(PROGRESS.md "백엔드에 걸린 것")
+// 초안 1번 "영양제 소식"(회수·공지·기사). 지금은 식약처 건강기능식품 회수만 최신 4건. 공지·기사는 데이터 출처가 정해진 뒤
 function News() {
   return (
     <section className="min-w-0 flex-[999_1_480px]">
       <div className="flex items-end justify-between gap-2">
         <h2 className="text-2xl font-extrabold tracking-tight text-ink">영양제 소식</h2>
-        {/* 초안 1번 "더 보기". 소식 전체 화면(/news)과 API가 생기면 링크로 바꾼다. 지금은 갈 곳이 없어 누를 수 없게 둔다 */}
-        <span className="cursor-not-allowed text-sm font-bold text-ink-muted">
+        <Link href="/news" className="text-sm font-bold text-brand-700 hover:underline">
           더 보기
-        </span>
+        </Link>
       </div>
-      <div className="mt-4 flex flex-col items-center rounded-card border-2 border-dashed border-line px-6 py-10 text-center">
-        <span aria-hidden="true" className="grid size-12 place-items-center rounded-full bg-surface text-ink-muted">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
-            <path d="M5 4h11v16H6a1 1 0 0 1-1-1zM16 8h3v10a2 2 0 0 1-2 2M8 8h5M8 12h5M8 16h3" />
-          </svg>
-        </span>
-        <span className="mt-4 rounded-full bg-warn-bg px-2.5 py-1 text-xs font-bold text-warn-fg">준비 중</span>
-        <p className="mt-3 font-bold text-ink">영양제 소식을 준비하고 있어요</p>
-        <p className="mt-1 text-sm text-ink-muted">식약처 회수 소식과 공지를 곧 모아 보여드려요</p>
+      <div className="mt-4">
+        <Suspense fallback={<Message>불러오는 중…</Message>}>
+          <LatestNews />
+        </Suspense>
       </div>
     </section>
   );
+}
+
+async function LatestNews() {
+  // 요청 때 그린다. 빌드 때(prerender) 백엔드를 부르면 백엔드 없는 CI에서 빌드가 깨진다
+  await connection();
+  let res;
+  try {
+    res = await getNews(0, NEWS_COUNT);
+  } catch (e) {
+    // 메인 전체를 에러 화면으로 바꾸지 않는다(인기 성분과 같음)
+    console.error("메인 영양제 소식을 불러오지 못했습니다", e);
+    return <Message>소식을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.</Message>;
+  }
+  if ("error" in res) return <Message>{res.error.message}</Message>;
+  if (res.data.items.length === 0) return <Message>아직 소식이 없어요.</Message>;
+  return <NewsList items={res.data.items} />;
 }
 
 // 초안 1번 "공식 데이터로 만들어요"(DESIGN.md 5번: 수록 제품 수 · 매일 갱신 · 기준일 · 출처 표기).
