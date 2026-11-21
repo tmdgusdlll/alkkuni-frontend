@@ -1,7 +1,7 @@
 import { cacheLife } from "next/cache";
 import { connection } from "next/server";
 import { api } from "@/lib/api";
-import type { BrandItem, CategoryItem, IngredientItem, ProductExploreResponse, StatsResponse } from "@/types/api";
+import type { BrandItem, CategoryItem, IngredientItem, NewsResponse, ProductExploreResponse, StatsResponse } from "@/types/api";
 
 // 성분 사전(215개)은 Flyway로만 바뀌어 서버 메모리에 캐시한다. 조건이 바뀔 때마다 앞에 왕복이 붙지 않게
 export async function getIngredients() {
@@ -64,4 +64,12 @@ export async function getStatsOrNull() {
   // 요청 때 부른다. 빌드 때(prerender) 백엔드를 부르면 백엔드 없는 CI에서 빌드가 깨진다
   await connection();
   return getStats();
+}
+
+// 소식 목록(메인 4건·/news). 새벽 수집 때만 바뀌어 몇 분 캐시한다(메인 요청마다 백엔드를 부르지 않게).
+// 범위 밖 page는 빈 목록(200)으로 온다. 4xx는 파라미터 검증 실패(page>500 등)라 화면이 문구를 보여준다. 5xx·타임아웃은 던져서 캐시에 남지 않는다
+export async function getNews(page: number, size: number) {
+  "use cache";
+  cacheLife("minutes");
+  return api<NewsResponse>(`/api/news?${new URLSearchParams({ page: String(page), size: String(size) })}`);
 }

@@ -207,3 +207,19 @@ export type ProductCompareResponse = {
   // 여러 제품에 든 성분이 먼저 온다
   ingredients: CompareIngredient[];
 };
+
+// GET /api/news (news/NewsController.kt). 지금은 건강기능식품 회수만, 등록일 최신순
+export type NewsType = "RECALL";
+export type NewsItem = {
+  type: NewsType;
+  id: number;
+  // 회수는 제품명
+  title: string;
+  manufacturer: string | null;
+  reason: string | null;
+  // 회수 등급 원문(1·2·3등급, 자율회수 등). null이면 숨긴다
+  grade: string | null;
+  // 식약처 등록일 "2026-11-20". null이면 숨긴다
+  date: string | null;
+};
+export type NewsResponse = { totalCount: number; items: NewsItem[] };
