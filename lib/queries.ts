@@ -67,7 +67,7 @@ export async function getStatsOrNull() {
 }
 
 // 소식 목록(메인 4건·/news). 새벽 수집 때만 바뀌어 몇 분 캐시한다(메인 요청마다 백엔드를 부르지 않게).
-// 4xx는 범위 밖 page라 화면이 문구를 보여준다. 5xx·타임아웃은 던져서 캐시에 남지 않는다
+// 범위 밖 page는 빈 목록(200)으로 온다. 4xx는 파라미터 검증 실패(page>500 등)라 화면이 문구를 보여준다. 5xx·타임아웃은 던져서 캐시에 남지 않는다
 export async function getNews(page: number, size: number) {
   "use cache";
   cacheLife("minutes");
