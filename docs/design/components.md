@@ -94,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 | `CautionBox` | `text: string \| null` | `precautions` 원문, `bg-warn-surface` |
 | `RecallCard` | `recall: DetailRecall` | 사유 · 대상 소비기한(`expiryText`) + "위 소비기한이 적힌 제품만 해당돼요". 회수일·공지 링크는 API에 없음 |
 | `PurchasePanel` | `purchaseUrl`, `saved`, `onToggleSave`, `onAddCompare` | 구매 버튼 아래에 `AffiliateNotice`를 반드시 함께 렌더링 |
-| `AffiliateNotice` | — | 고정 문구: "이 링크로 구매하면 알꾼이가 일정 수수료를 받을 수 있어요. 수수료는 비교 순서에 영향을 주지 않아요." |
+| `AffiliateNotice` | — | 고정 문구: "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다." (1차는 상세 `PurchaseButton` 안 상수 `AFFILIATE_NOTICE`) |
 
 ### 내 서랍·마이페이지
 

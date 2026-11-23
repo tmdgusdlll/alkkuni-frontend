@@ -1,3 +1,5 @@
+import { ProductPhoto } from "@/components/ProductPhoto";
+
 // 제품 이미지가 없어 제형(I0030 PRDT_SHAP_CD_NM)으로 그린 아이콘을 둔다(DESIGN.md 5, PLANNING.md "제품 이미지").
 // 흰 면 + 하늘색 선 + 노랑 포인트. 장식이라 화면 읽기 프로그램에서 숨긴다(제형은 글자로 옆에 있다)
 type Kind = "tablet" | "capsule" | "powder" | "liquid" | "jelly" | "pill" | "bar";
@@ -73,7 +75,9 @@ const SHAPES: Record<Kind, React.ReactNode> = {
   ),
 };
 
-export function FormIcon({ form, size = 56 }: { form: string | null; size?: number }) {
+// imageUrl이 있으면 제품 사진(못 불러오면 아이콘), 없으면 제형 아이콘
+export function FormIcon({ form, imageUrl, size = 56 }: { form: string | null; imageUrl?: string | null; size?: number }) {
+  if (imageUrl) return <ProductPhoto src={imageUrl} size={size} fallback={<FormIcon form={form} size={size} />} />;
   // 기타·모름은 가장 흔한 정제 모양
   const kind = (form && KIND[form]) || "tablet";
   return (

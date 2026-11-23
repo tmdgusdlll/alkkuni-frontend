@@ -53,6 +53,8 @@ export type ProductSearchItem = BrandFields & {
   parseStatus: ParseStatus;
   // dailyAmount가 상한 2배를 넘으면 true(오류 의심). 성분 검색이 아니면 false
   exceedsUpperLimit: boolean;
+  // 제품 사진. 없으면 null(대부분)이고 화면은 제형 아이콘
+  imageUrl: string | null;
 };
 
 export type ProductSearchResponse = {
@@ -117,7 +119,13 @@ export type ProductDetailResponse = BrandFields & {
   ingredients: DetailIngredient[];
   // 신고번호가 정확히 같은 회수만
   recalls: DetailRecall[];
+  imageUrl: string | null;
+  // 구매 링크 대표 하나. 없으면 null(대부분)
+  purchaseLink: PurchaseLink | null;
 };
+
+// SEARCH는 제품 페이지가 아니라 쇼핑몰 검색 결과로 간다
+export type PurchaseLink = { store: "COUPANG"; type: "DETAIL" | "SEARCH"; url: string };
 
 // GET /api/stats (stats/StatsController.kt). dataDate는 "이 날짜까지 반영"(I0030 커서 - 1일), 첫 적재 전이면 null
 export type StatsResponse = { productCount: number; ingredientCount: number; dataDate: string | null };
