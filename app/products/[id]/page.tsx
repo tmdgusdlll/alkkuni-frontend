@@ -157,11 +157,12 @@ const AFFILIATE_NOTICE = "이 포스팅은 쿠팡 파트너스 활동의 일환�
 function PurchaseButton({ link }: { link: PurchaseLink }) {
   return (
     <div className="mt-3">
-      {/* 제휴 링크는 rel="sponsored"(검색 엔진 안내). 새 탭이라 noopener */}
+      {/* 제휴 링크는 rel="sponsored"(검색 엔진 안내). 새 탭이라 noopener.
+          noreferrer는 두지 않는다. 쿠팡이 등록 채널(kuromi.click)에서 온 방문인지 Referer로 볼 수 있어서다 */}
       <a
         href={link.url}
         target="_blank"
-        rel="sponsored noopener noreferrer"
+        rel="sponsored noopener"
         className="flex h-12 items-center justify-center rounded-full border border-brand-700 font-bold text-brand-700 hover:bg-brand-50"
       >
         {link.type === "SEARCH" ? "쿠팡에서 찾아보기" : "쿠팡에서 보기"}
