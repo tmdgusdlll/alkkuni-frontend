@@ -7,7 +7,7 @@ import { DvProgress } from "@/components/DvProgress";
 import { FormIcon } from "@/components/FormIcon";
 import { api } from "@/lib/api";
 import { formatAmount, formatDate } from "@/lib/format";
-import type { DetailIngredient, DetailRecall, ProductDetailResponse } from "@/types/api";
+import type { DetailIngredient, DetailRecall, ProductDetailResponse, PurchaseLink } from "@/types/api";
 
 // 탭 제목과 본문이 같은 요청 안에서 한 번만 부르게 묶는다(api()가 timeout signal을 넘겨 fetch 자동 중복 제거를 믿지 않음).
 // 숫자가 아니거나 백엔드 Long(19자리)을 넘는 id는 백엔드가 400을 주지만 사용자에게는 없는 제품과 같아 부르지 않는다
@@ -66,10 +66,12 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
         {/* 왼쪽: 제품 요약 */}
         <section className="lg:sticky lg:top-8">
           <div className="relative flex aspect-[4/3] items-center justify-center rounded-hero bg-brand-50">
-            <FormIcon form={p.form} size={160} />
-            <span className="absolute bottom-3 left-3 rounded-full bg-white px-2.5 py-1 text-xs text-ink-muted">
-              이미지 준비 중
-            </span>
+            <FormIcon form={p.form} imageUrl={p.imageUrl} size={p.imageUrl ? 240 : 160} />
+            {!p.imageUrl && (
+              <span className="absolute bottom-3 left-3 rounded-full bg-white px-2.5 py-1 text-xs text-ink-muted">
+                이미지 준비 중
+              </span>
+            )}
           </div>
           {/* 브랜드는 제품명 바로 위, 제조사는 아래(DESIGN.md 9). 제조사는 위탁생산 회사라 브랜드처럼 보이지 않게 떼어 둔다 */}
           <div className="mt-5">
@@ -105,6 +107,7 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
           >
             비교하러 가기
           </Link>
+          {p.purchaseLink && <PurchaseButton link={p.purchaseLink} />}
         </section>
 
         {/* 오른쪽: 성분표 → 기능성 → 주의사항 → 회수 이력 */}
@@ -145,6 +148,28 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
         </div>
       </div>
     </>
+  );
+}
+
+// 쿠팡 파트너스가 요구하는 대가성 문구. 버튼 바로 아래에 둔다(DESIGN.md 7.5)
+const AFFILIATE_NOTICE = "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.";
+
+function PurchaseButton({ link }: { link: PurchaseLink }) {
+  return (
+    <div className="mt-3">
+      {/* 제휴 링크는 rel="sponsored"(검색 엔진 안내). 새 탭이라 noopener */}
+      <a
+        href={link.url}
+        target="_blank"
+        rel="sponsored noopener noreferrer"
+        className="flex h-12 items-center justify-center rounded-full border border-brand-700 font-bold text-brand-700 hover:bg-brand-50"
+      >
+        {link.type === "SEARCH" ? "쿠팡에서 찾아보기" : "쿠팡에서 보기"}
+        <span aria-hidden="true">&nbsp;↗</span>
+        <span className="sr-only">(새 탭)</span>
+      </a>
+      <p className="mt-2 text-xs break-keep text-ink-muted">{AFFILIATE_NOTICE}</p>
+    </div>
   );
 }
 

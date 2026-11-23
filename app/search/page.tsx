@@ -151,7 +151,7 @@ function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: 
   return (
     <li className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-line-soft px-5 py-4 last:border-b-0">
       <div className="flex min-w-0 flex-[999_1_320px] items-center gap-4">
-        <FormIcon form={item.form} />
+        <FormIcon form={item.form} imageUrl={item.imageUrl} />
         <div className="min-w-0">
           <BrandLabel brand={item.brand} name={item.name} />
           <Link href={`/products/${item.id}`} className="block font-bold text-ink hover:text-brand-700 hover:underline">

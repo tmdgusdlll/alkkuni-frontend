@@ -73,7 +73,20 @@ const SHAPES: Record<Kind, React.ReactNode> = {
   ),
 };
 
-export function FormIcon({ form, size = 56 }: { form: string | null; size?: number }) {
+// imageUrl이 있으면 제품 사진, 없으면 제형 아이콘. 사진은 쿠팡 등 외부 주소라 next/image 허용 목록을 두지 않고 <img>로 띄운다
+export function FormIcon({ form, imageUrl, size = 56 }: { form: string | null; imageUrl?: string | null; size?: number }) {
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageUrl}
+        alt=""
+        loading="lazy"
+        className="shrink-0 rounded-tile bg-white object-contain"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   // 기타·모름은 가장 흔한 정제 모양
   const kind = (form && KIND[form]) || "tablet";
   return (
