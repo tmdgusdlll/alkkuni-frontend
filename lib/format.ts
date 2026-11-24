@@ -5,7 +5,7 @@ export function formatAmount(n: number) {
 
 // 백엔드는 1일 함량을 비교·정렬하려고 mg으로 준다(비타민 D 10μg → 0.01mg). 성분 표시 단위가 μg이면 질량 단위만 바꿔 보여준다.
 // 환산 표기는 이어 붙인다("mg DFE" → "μg DFE"). CFU 같은 단위는 그대로다
-export function isMicro(unit: string | null, displayUnit: string | null): unit is string {
+export function isMicro(unit: string | null, displayUnit: string | null) {
   return displayUnit === "μg" && unit !== null && /^mg( |$)/u.test(unit);
 }
 
@@ -15,7 +15,7 @@ export function displayAmount(value: number, unit: string | null, displayUnit: s
 }
 
 export function displayUnitOf(unit: string | null, displayUnit: string | null) {
-  return isMicro(unit, displayUnit) ? `μg${unit.slice(2)}` : unit;
+  return unit !== null && isMicro(unit, displayUnit) ? `μg${unit.slice(2)}` : unit;
 }
 
 // 표시 단위(μg)로 받은 함량 범위 → API 값(mg). 소수 계산으로 값이 바뀌지 않게 지수만 옮긴다("400" → "400e-3", 백엔드 BigDecimal이 그대로 읽음)
