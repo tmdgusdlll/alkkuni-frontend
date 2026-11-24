@@ -102,7 +102,8 @@
 ```
 
 - 천 단위 쉼표: `1,000mg`
-- 단위는 API가 준 그대로 써요. IU 같은 환산값은 API에 없어서 지어내지 않아요.
+- 1일 함량 단위는 성분의 `displayUnit`을 따라요. API는 비교를 위해 mg으로 주므로(비타민 D 0.01mg), `displayUnit`이 `μg`이면 질량 단위 값만 ×1,000 하고 환산 표기는 이어 붙여요(`0.4mg DFE` → `400μg DFE`). 함수는 `displayAmount`(`lib/format.ts`) 하나만 써요. explore 함량 범위 입력도 같은 단위예요.
+- 그 밖의 단위(CFU 등)와 1일 함량을 모르는 행의 원문 값은 API가 준 그대로 써요. IU 같은 환산값은 API에 없어서 지어내지 않아요.
 - 기준치 %가 없으면(`referencePercent` null) %를 지어내지 않아요.
 
 ---

@@ -3,6 +3,27 @@ export function formatAmount(n: number) {
   return n.toLocaleString("ko-KR", { maximumFractionDigits: 6 });
 }
 
+// 백엔드는 1일 함량을 비교·정렬하려고 mg으로 준다(비타민 D 10μg → 0.01mg). 성분 표시 단위가 μg이면 질량 단위만 바꿔 보여준다.
+// 환산 표기는 이어 붙인다("mg DFE" → "μg DFE"). CFU 같은 단위는 그대로다
+export function isMicro(unit: string | null, displayUnit: string | null) {
+  return displayUnit === "μg" && unit !== null && /^mg( |$)/u.test(unit);
+}
+
+// 1일 함량 표시 값과 단위. 원문 값(amount/basis)은 성분표 그대로라 쓰지 않는다
+export function displayAmount(value: number, unit: string | null, displayUnit: string | null) {
+  return { value: formatAmount(isMicro(unit, displayUnit) ? value * 1000 : value), unit: displayUnitOf(unit, displayUnit) };
+}
+
+export function displayUnitOf(unit: string | null, displayUnit: string | null) {
+  return unit !== null && isMicro(unit, displayUnit) ? `μg${unit.slice(2)}` : unit;
+}
+
+// 표시 단위(μg)로 받은 함량 범위 → API 값(mg). 소수 계산으로 값이 바뀌지 않게 지수만 옮긴다("400" → "400e-3", 백엔드 BigDecimal이 그대로 읽음)
+export function microToMg(s: string) {
+  const [mantissa, exp = "0"] = s.split(/e/iu);
+  return `${mantissa}e${Number(exp) - 3}`;
+}
+
 // "2024-03-05" → "2024.03.05"
 export function formatDate(iso: string) {
   return iso.replaceAll("-", ".");

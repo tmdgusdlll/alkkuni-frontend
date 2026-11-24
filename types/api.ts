@@ -38,7 +38,7 @@ export type CategoryItem = CategoryRef & { productCount: number };
 // product/ProductSearchResponse.kt
 export type ProductSearchSort = "relevance" | "latest" | "amount";
 
-export type MatchedIngredient = { id: number; name: string };
+export type MatchedIngredient = { id: number; name: string; displayUnit: string | null };
 
 export type ProductSearchItem = BrandFields & {
   id: number;
@@ -77,6 +77,8 @@ export type DetailIngredient = {
   // 1일 기준값. 기준값이 없거나 사전에 없는 성분은 null
   referenceAmount: number | null;
   referenceUnit: string | null;
+  // 화면 표시 단위(백엔드 ingredient.display_unit). "μg"이면 mg 값을 μg으로 바꿔 보여준다(lib/format.ts displayAmount). null이면 받은 단위 그대로
+  displayUnit: string | null;
   // 1일 함량(단위 통일). 계산하지 못하면 null이고 화면은 원문 amount/basis를 보여준다
   dailyAmount: number | null;
   dailyUnit: string | null;
@@ -140,6 +142,8 @@ export type IngredientItem = {
   // null이면 기준값이 없어 "기준 충족"(meetsReference)을 켤 수 없다
   referenceAmount: number | null;
   referenceUnit: string | null;
+  // 화면 표시 단위(백엔드 ingredient.display_unit). "μg"이면 mg 값을 μg으로 바꿔 보여준다(lib/format.ts displayAmount). null이면 받은 단위 그대로
+  displayUnit: string | null;
 };
 
 // product/ProductCompareResponse.kt CompareAmount: 성분 함량 한 행
@@ -160,7 +164,7 @@ export type CompareAmount = {
 };
 
 // GET /api/products/explore (product/ProductExploreResponse.kt)
-export type ExploreIngredient = Pick<IngredientItem, "id" | "name" | "defaultUnit" | "referenceAmount" | "referenceUnit">;
+export type ExploreIngredient = Pick<IngredientItem, "id" | "name" | "defaultUnit" | "referenceAmount" | "referenceUnit" | "displayUnit">;
 
 export type ProductExploreItem = BrandFields & {
   id: number;
@@ -205,6 +209,8 @@ export type CompareIngredient = {
   referenceUnit: string | null;
   // 주 단위. 값의 dailyUnit이 다르면 "다른 단위 표기"
   defaultUnit: string | null;
+  // 화면 표시 단위(백엔드 ingredient.display_unit). "μg"이면 mg 값을 μg으로 바꿔 보여준다(lib/format.ts displayAmount). null이면 받은 단위 그대로
+  displayUnit: string | null;
   // products와 같은 순서. 제품에 없는 성분은 빈 목록, 같은 성분 행이 여러 개면 합치지 않는다
   values: CompareAmount[][];
 };

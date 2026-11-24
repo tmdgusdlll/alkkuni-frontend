@@ -6,7 +6,7 @@ import { BasisBadge, BrandLabel, ExportBadge, OtherUnitBadge, ReviewBadge } from
 import { DvProgress } from "@/components/DvProgress";
 import { FormIcon } from "@/components/FormIcon";
 import { api } from "@/lib/api";
-import { formatAmount, formatDate } from "@/lib/format";
+import { displayAmount, formatAmount, formatDate } from "@/lib/format";
 import type { DetailIngredient, DetailRecall, ProductDetailResponse, PurchaseLink } from "@/types/api";
 
 // 탭 제목과 본문이 같은 요청 안에서 한 번만 부르게 묶는다(api()가 timeout signal을 넘겨 fetch 자동 중복 제거를 믿지 않음).
@@ -231,6 +231,7 @@ function IngredientTable({
 }
 
 function IngredientRow({ g }: { g: DetailIngredient }) {
+  const daily = g.dailyAmount === null ? null : displayAmount(g.dailyAmount, g.dailyUnit, g.displayUnit);
   return (
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-6 gap-y-2 border-b border-line-soft py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto_45%]">
       <p className="font-bold break-keep text-ink">
@@ -243,7 +244,7 @@ function IngredientRow({ g }: { g: DetailIngredient }) {
         )}
       </p>
       <p className="text-right whitespace-nowrap">
-        {g.dailyAmount === null ? (
+        {daily === null ? (
           // 1일 함량을 계산하지 못한 행은 성분표 원문 값만(DESIGN.md 7.3.1)
           <span className="text-sm text-ink-soft">
             {formatAmount(g.amount)}
@@ -252,8 +253,8 @@ function IngredientRow({ g }: { g: DetailIngredient }) {
           </span>
         ) : (
           <b className="text-lg font-extrabold tabular-nums text-ink">
-            {formatAmount(g.dailyAmount)}
-            <small className="ml-0.5 text-xs font-medium text-ink-muted">{g.dailyUnit}</small>
+            {daily.value}
+            <small className="ml-0.5 text-xs font-medium text-ink-muted">{daily.unit}</small>
           </b>
         )}
       </p>

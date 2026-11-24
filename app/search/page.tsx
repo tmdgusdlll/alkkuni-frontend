@@ -7,8 +7,8 @@ import { Pagination } from "@/components/Pagination";
 import { ProductPhoto } from "@/components/ProductPhoto";
 import { SearchBar } from "@/components/SearchBar";
 import { api } from "@/lib/api";
-import { formatAmount, productMeta, splitBrandName } from "@/lib/format";
-import type { ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
+import { displayAmount, productMeta, splitBrandName } from "@/lib/format";
+import type { MatchedIngredient, ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
 
 // 검색어를 제목에 넣으려면 generateMetadata가 searchParams를 기다려 페이지 틀까지 요청 때 만들어진다. 고정 제목으로 둔다
 export const metadata: Metadata = {
@@ -140,7 +140,7 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
       ) : (
         <ul className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
           {data.items.map((item) => (
-            <ResultCard key={item.id} item={item} showAmount={ingredient !== null} />
+            <ResultCard key={item.id} item={item} ingredient={ingredient} />
           ))}
         </ul>
       )}
@@ -151,7 +151,7 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
 }
 
 // 검색 결과 격자 카드(2026-11-23 시안 A). 위 브랜드, 아래 브랜드를 뗀 이름(백엔드 PLANNING.md "검색 결과 표시" 1)
-function ResultCard({ item, showAmount }: { item: ProductSearchItem; showAmount: boolean }) {
+function ResultCard({ item, ingredient }: { item: ProductSearchItem; ingredient: MatchedIngredient | null }) {
   const { brand, name } = splitBrandName(item.brand?.name ?? null, item.name);
   const icon = <FormIcon form={item.form} size={88} />;
   return (
@@ -179,7 +179,7 @@ function ResultCard({ item, showAmount }: { item: ProductSearchItem; showAmount:
               {(item.parseStatus === "NEEDS_REVIEW" || item.exceedsUpperLimit) && <ReviewBadge />}
             </div>
           )}
-          {showAmount && <CardAmount item={item} />}
+          {ingredient && <CardAmount item={item} displayUnit={ingredient.displayUnit} />}
         </div>
       </Link>
     </li>
@@ -188,17 +188,18 @@ function ResultCard({ item, showAmount }: { item: ProductSearchItem; showAmount:
 
 // 함량과 기준을 붙여 둔다. 기준을 숨기면 1정 기준 값이 하루치처럼 읽혀서다(2026-11-23 정함).
 // 확인한 1일 기준만 배지로 띄우고, 대부분인 표시 기준량은 작은 글자로 둔다
-function CardAmount({ item }: { item: ProductSearchItem }) {
+function CardAmount({ item, displayUnit }: { item: ProductSearchItem; displayUnit: string | null }) {
   if (item.dailyAmount === null) {
     // 1일 함량을 계산하지 못한 제품. 원문 값은 상세에서 보여준다
     return <p className="mt-auto pt-2 text-sm text-ink-muted">함량 확인 필요</p>;
   }
   const daily = item.basisCheck === "DAILY" || item.basisCheck === "PER_SERVING";
+  const shown = displayAmount(item.dailyAmount, item.dailyUnit, displayUnit);
   return (
     <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2">
       <b className="tabular-nums text-lg font-extrabold text-ink sm:text-xl">
-        {formatAmount(item.dailyAmount)}
-        <small className="ml-0.5 text-xs font-medium text-ink-muted">{item.dailyUnit}</small>
+        {shown.value}
+        <small className="ml-0.5 text-xs font-medium text-ink-muted">{shown.unit}</small>
       </b>
       {daily ? <BasisBadge basisCheck={item.basisCheck} /> : <span className="text-xs text-ink-muted">표시 기준량</span>}
     </div>
