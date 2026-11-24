@@ -205,14 +205,14 @@ function CardAmount({ item }: { item: ProductSearchItem }) {
   );
 }
 
-// 카드 안 "표시 기준량" 설명. 카드가 링크라 결과 위에 한 번만 둔다
+// 카드 안 "표시 기준량" 설명. 카드가 링크라 결과 위에 한 번만 둔다. 글줄 중간에서 열려도 좁은 화면 밖으로 나가지 않게 폭을 제한한다
 function BasisHelp() {
   return (
     <details className="relative inline-block">
       <summary className="cursor-pointer list-none font-bold text-brand-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
         표시 기준량이란?
       </summary>
-      <p className="absolute left-0 top-full z-10 mt-1 w-64 rounded-tile border border-line bg-white p-3 text-xs text-ink-soft shadow-card">
+      <p className="absolute left-0 top-full z-10 mt-1 w-64 max-w-[calc(100vw-3rem)] rounded-tile border border-line bg-white p-3 text-xs text-ink-soft shadow-card">
         제품 성분표에 적힌 기준량(예: 1정)당 함량이에요. 하루 섭취량과 같은지 확인하지 못했어요. 확인한 제품에는 ‘1일 기준’을 붙여요.
       </p>
     </details>
