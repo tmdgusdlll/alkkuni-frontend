@@ -8,7 +8,7 @@ import { Pagination } from "@/components/Pagination";
 import { ComparePanel } from "./ComparePanel";
 import { api } from "@/lib/api";
 import { getBrands, getCategories, getExplore, getIngredients } from "@/lib/queries";
-import { productMeta } from "@/lib/format";
+import { displayUnitOf, isMicro, microToMg, productMeta } from "@/lib/format";
 import type { BrandItem, CategoryItem, ErrorBody, IngredientItem, ProductExploreResponse, ProductSearchResponse } from "@/types/api";
 
 export const metadata: Metadata = {
@@ -92,10 +92,25 @@ async function searchProducts(q: string) {
   return api<ProductSearchResponse>(`/api/products?${new URLSearchParams({ q, size: String(SEARCH_SIZE) })}`);
 }
 
-function exploreQuery(p: Params) {
+function exploreQuery(p: Params, byId: Map<number, IngredientItem>) {
   const q = toQuery(p);
   q.set("size", String(PAGE_SIZE));
+  // 함량 범위는 화면 단위(μg)로 받아 주소에도 그대로 두고, API에는 저장 단위(mg)로 넘긴다
+  const baseId = baseOf(p);
+  const base = baseId === undefined ? undefined : byId.get(baseId);
+  if (base && isMicro(rangeUnitOf(base), base.displayUnit)) {
+    for (const key of ["min", "max"]) {
+      const v = q.get(key);
+      if (v) q.set(key, microToMg(v));
+    }
+  }
   return String(q);
+}
+
+// 함량 범위(min·max)가 걸리는 단위(저장 단위). defaultUnit이 없는 성분은 단위가 섞이지 않아 기준값 단위와 같다(백엔드 데이터로 확인, 2026-11-11).
+// 기준값도 없는 성분(mg·CFU 등)은 null이고 화면은 결과의 단위를 쓴다
+function rangeUnitOf(i: IngredientItem) {
+  return i.defaultUnit ?? i.referenceUnit;
 }
 
 async function ExploreContent({ searchParams }: { searchParams: PageProps<"/explore">["searchParams"] }) {
@@ -155,7 +170,7 @@ async function ExploreContent({ searchParams }: { searchParams: PageProps<"/expl
               <ProductSearch params={params} />
               {/* key가 바뀌면 새 경계라 조건·정렬·페이지가 바뀔 때 이전 결과 대신 "불러오는 중"을 보여준다 */}
               <Suspense key={listKey} fallback={<Loading />}>
-                <Results params={params} />
+                <Results params={params} byId={byId} />
               </Suspense>
             </section>
             <Guide params={params} />
@@ -260,9 +275,8 @@ function Filters({
   // 기준 성분. 기능성만 골랐으면 없고, 함량 범위·기준 충족을 두지 않는다(백엔드가 거절)
   const baseId = baseOf(params);
   const base = baseId === undefined ? undefined : byId.get(baseId);
-  // 함량 범위 단위. defaultUnit이 없는 성분은 단위가 섞이지 않아 기준값 단위와 같다(백엔드 데이터로 확인, 2026-11-11).
-  // 기준값도 없는 성분(mg·CFU 등)은 결과의 단위를 쓴다
-  const unit = base && (base.defaultUnit ?? base.referenceUnit);
+  // 함량 범위 단위(화면 단위). 비타민 D는 μg으로 입력받고 API에만 mg으로 넘긴다(exploreQuery)
+  const unit = base && displayUnitOf(rangeUnitOf(base), base.displayUnit);
   const used = new Set([...params.ingredients, ...params.exclude]);
   const rest = dict.filter((i) => !used.has(i.id));
   const noReference = params.ingredients.map((id) => byId.get(id)!).filter((i) => i.referenceAmount === null);
@@ -411,7 +425,7 @@ function Filters({
                   <span className="text-sm text-ink-muted">{unit}</span>
                 ) : (
                   <Suspense fallback={null}>
-                    <ResultUnit params={params} baseId={base.id} />
+                    <ResultUnit params={params} byId={byId} baseId={base.id} />
                   </Suspense>
                 )}
               </FilterRow>
@@ -449,8 +463,8 @@ function Filters({
 }
 
 // 기준값이 없는 기준 성분의 단위. 결과 표와 같은 응답(getExplore)에서 찾는다
-async function ResultUnit({ params, baseId }: { params: Params; baseId: number }) {
-  const res = await getExplore(exploreQuery(params));
+async function ResultUnit({ params, byId, baseId }: { params: Params; byId: Map<number, IngredientItem>; baseId: number }) {
+  const res = await getExplore(exploreQuery(params, byId));
   if ("error" in res) return null;
   const unit = res.data.items
     .flatMap((it) => it.amounts.find((a) => a.ingredientId === baseId)?.values ?? [])
@@ -458,8 +472,8 @@ async function ResultUnit({ params, baseId }: { params: Params; baseId: number }
   return unit ? <span className="text-sm text-ink-muted">{unit}</span> : null;
 }
 
-async function Results({ params }: { params: Params }) {
-  const res = await getExplore(exploreQuery(params));
+async function Results({ params, byId }: { params: Params; byId: Map<number, IngredientItem> }) {
+  const res = await getExplore(exploreQuery(params, byId));
   if ("error" in res) return <ExploreError params={params} error={res.error} />;
   const data = res.data;
   const lastPage = Math.min(Math.ceil(data.totalCount / PAGE_SIZE) - 1, MAX_PAGE);

@@ -1,10 +1,10 @@
 import { AmountBar } from "@/components/AmountBar";
 import { OtherUnitBadge, ReviewBadge } from "@/components/badges";
-import { formatAmount } from "@/lib/format";
+import { displayAmount, formatAmount } from "@/lib/format";
 import type { CompareAmount, IngredientItem } from "@/types/api";
 
 // 함량 칸이 판정에 쓰는 성분 정보. 목록(explore)·비교(compare) 응답의 성분 행에 둘 다 있다
-type UnitRule = Pick<IngredientItem, "defaultUnit" | "referenceAmount">;
+type UnitRule = Pick<IngredientItem, "defaultUnit" | "referenceAmount" | "displayUnit">;
 
 // 한 성분의 함량 행들. 같은 성분 행이 여러 개(멀티팩 등)면 합치지 않고 "+"로 이어 모두 보여준다(DESIGN.md 7.3.1)
 export function AmountCell({ values, ing, barMax }: { values: CompareAmount[]; ing: UnitRule; barMax: number | null }) {
@@ -30,10 +30,7 @@ export function AmountCell({ values, ing, barMax }: { values: CompareAmount[]; i
                   {v.basisUnit}
                 </span>
               ) : (
-                <b className="text-lg font-extrabold whitespace-nowrap tabular-nums text-ink">
-                  {formatAmount(v.dailyAmount)}
-                  <small className="ml-0.5 text-xs font-medium text-ink-muted">{v.dailyUnit}</small>
-                </b>
+                <DailyAmount value={v.dailyAmount} unit={v.dailyUnit} displayUnit={ing.displayUnit} />
               )}
               <AmountStatus v={v} ing={ing} />
             </div>
@@ -41,6 +38,16 @@ export function AmountCell({ values, ing, barMax }: { values: CompareAmount[]; i
         );
       })}
     </ul>
+  );
+}
+
+function DailyAmount({ value, unit, displayUnit }: { value: number; unit: string | null; displayUnit: string | null }) {
+  const shown = displayAmount(value, unit, displayUnit);
+  return (
+    <b className="text-lg font-extrabold whitespace-nowrap tabular-nums text-ink">
+      {shown.value}
+      <small className="ml-0.5 text-xs font-medium text-ink-muted">{shown.unit}</small>
+    </b>
   );
 }
 
