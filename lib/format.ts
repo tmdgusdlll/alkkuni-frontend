@@ -14,3 +14,29 @@ export function productMeta(p: { manufacturer: string | null; form: string | nul
     .filter(Boolean)
     .join(" · ");
 }
+
+// 카드 위 브랜드·아래 이름으로 나눈다(백엔드 PLANNING.md "검색 결과 표시" 1). 이름 앞의 브랜드 표기는
+// BrandName.nameKey와 같은 규칙(앞 괄호·공백·대소문자 무시)으로 떼고, 브랜드로 시작하지 않으면("ATOMY …") 이름을 그대로 둔다
+export function splitBrandName(brand: string | null, name: string): { brand: string | null; name: string } {
+  if (!brand) return { brand: null, name };
+  const key = brand.replace(/\s+/gu, "").toUpperCase();
+  let i = name.match(/^\s*[[(<【]?\s*/u)?.[0].length ?? 0;
+  let k = 0;
+  while (i < name.length && k < key.length) {
+    if (/\s/u.test(name[i])) i++;
+    else if (name[i].toUpperCase() === key[k]) {
+      i++;
+      k++;
+    } else break;
+  }
+  if (k < key.length) return { brand, name };
+  // "일양약품 아연365"(브랜드 "일양", 사전 별칭 "일양약품")처럼 회사명 꼬리도 브랜드 표기라 같이 뗀다
+  // ponytail: 로컬 브랜드 제품 5,429개 중 띄어쓰기 없이 붙은 315개를 보고 정한 꼬리(2026-11-23). 사전 별칭이 늘면 다시 본다
+  // 꼬리는 단어가 끝날 때만("일양 제약회사…"는 그대로), 닫는 괄호보다 먼저 지운다("[일양약품] 아연365")
+  const rest = name
+    .slice(i)
+    .replace(/^(약품|제약)(?=[\s\])>】]|$)/u, "")
+    .replace(/^\s*[\])>】]?\s*/u, "");
+  // 이름이 브랜드뿐이면 뗄 게 없다
+  return { brand, name: rest || name };
+}

@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
+import { BasisBadge, ExportBadge, ReviewBadge } from "@/components/badges";
 import { FormIcon } from "@/components/FormIcon";
 import { Pagination } from "@/components/Pagination";
+import { ProductPhoto } from "@/components/ProductPhoto";
 import { SearchBar } from "@/components/SearchBar";
 import { api } from "@/lib/api";
-import { formatAmount, productMeta } from "@/lib/format";
+import { formatAmount, productMeta, splitBrandName } from "@/lib/format";
 import type { ProductSearchItem, ProductSearchResponse, ProductSearchSort } from "@/types/api";
 
 // 검색어를 제목에 넣으려면 generateMetadata가 searchParams를 기다려 페이지 틀까지 요청 때 만들어진다. 고정 제목으로 둔다
@@ -15,7 +16,8 @@ export const metadata: Metadata = {
   description: "제품명·브랜드·성분으로 영양제를 찾고 함량을 확인해요",
 };
 
-const PAGE_SIZE = 20;
+// 격자 4·3·2열이 모두 나눠떨어지는 개수(2026-11-23 정함)
+const PAGE_SIZE = 24;
 // 백엔드 page 상한(ProductController MAX_PAGE)
 const MAX_PAGE = 500;
 
@@ -96,10 +98,11 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
             ‘{params.q}’ 검색 결과 <span className="tabular-nums text-brand-700">{data.totalCount.toLocaleString("ko-KR")}</span>개
           </h1>
           {ingredient && (
-            <p className="mt-1 text-sm text-ink-muted">
+            // details는 p 안에 둘 수 없어 div로 감싼다
+            <div className="mt-1 text-sm text-ink-muted">
               {/* 성분 이름마다 받침이 달라 조사를 붙이지 않는다 */}
-              성분 <b className="text-ink">{ingredient.name}</b> · 함량은 이 성분의 1일 함량이에요.
-            </p>
+              성분 <b className="text-ink">{ingredient.name}</b> · 함량은 이 성분의 1일 함량이에요. <BasisHelp />
+            </div>
           )}
           {/* 검색어가 브랜드 표기면 이름에 검색어가 없는 그 브랜드 제품("애터미" → "ATOMY …")도 더해져 이유를 알린다 */}
           {data.matchedBrand && (
@@ -135,9 +138,9 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
           </Link>
         </p>
       ) : (
-        <ul className="mt-6 overflow-hidden rounded-card border border-line bg-white shadow-card">
+        <ul className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
           {data.items.map((item) => (
-            <ResultRow key={item.id} item={item} showAmount={ingredient !== null} />
+            <ResultCard key={item.id} item={item} showAmount={ingredient !== null} />
           ))}
         </ul>
       )}
@@ -147,43 +150,72 @@ function Results({ params, data }: { params: Params; data: ProductSearchResponse
   );
 }
 
-function ResultRow({ item, showAmount }: { item: ProductSearchItem; showAmount: boolean }) {
+// 검색 결과 격자 카드(2026-11-23 시안 A). 위 브랜드, 아래 브랜드를 뗀 이름(백엔드 PLANNING.md "검색 결과 표시" 1)
+function ResultCard({ item, showAmount }: { item: ProductSearchItem; showAmount: boolean }) {
+  const { brand, name } = splitBrandName(item.brand?.name ?? null, item.name);
+  const icon = <FormIcon form={item.form} size={88} />;
   return (
-    <li className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-line-soft px-5 py-4 last:border-b-0">
-      <div className="flex min-w-0 flex-[999_1_320px] items-center gap-4">
-        <FormIcon form={item.form} imageUrl={item.imageUrl} />
-        <div className="min-w-0">
-          <BrandLabel brand={item.brand} name={item.name} />
-          <Link href={`/products/${item.id}`} className="block font-bold text-ink hover:text-brand-700 hover:underline">
-            {item.name}
-          </Link>
-          <p className="mt-0.5 text-sm text-ink-muted">
-            {productMeta(item)}
-          </p>
+    <li className="min-w-0">
+      {/* 카드 전체가 링크라 안에 누르는 요소(배지 설명 등)를 두지 않는다. 설명은 결과 위에 한 번(BasisHelp) */}
+      <Link
+        href={`/products/${item.id}`}
+        className="flex h-full flex-col rounded-card border border-line bg-white p-2.5 shadow-card transition-colors hover:border-brand-200 sm:p-3.5"
+      >
+        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-tile bg-brand-50">
+          {item.imageUrl ? <ProductPhoto src={item.imageUrl} fallback={icon} /> : icon}
         </div>
-      </div>
-      <div className="flex flex-[1_1_auto] items-center justify-end gap-2">
-        {item.exportOnly && <ExportBadge />}
-        {/* DESIGN.md 7.3.1: 검수 대기 제품이거나 상한 2배를 넘는 오류 의심 값 */}
-        {(item.parseStatus === "NEEDS_REVIEW" || item.exceedsUpperLimit) && <ReviewBadge />}
-        {showAmount &&
-          (item.dailyAmount === null ? (
-            // 1일 함량을 계산하지 못한 제품. 원문 값은 상세에서 보여준다
-            <span className="text-sm text-ink-muted">함량 확인 필요</span>
-          ) : (
-            <>
-              <b className="tabular-nums text-xl font-extrabold text-ink">
-                {formatAmount(item.dailyAmount)}
-                <small className="ml-0.5 text-xs font-medium text-ink-muted">{item.dailyUnit}</small>
-              </b>
-              {/* 배지 폭이 달라도 숫자 열이 흔들리지 않게 자리를 고정한다 */}
-              <span className="w-[92px]">
-                <BasisBadge basisCheck={item.basisCheck} />
-              </span>
-            </>
-          ))}
-      </div>
+        <div className="mt-3 flex min-w-0 flex-1 flex-col">
+          {/* 브랜드 없는 카드도 이름 줄이 맞게 자리를 둔다 */}
+          <p className="min-h-4 truncate text-xs font-bold text-ink-soft">{brand}</p>
+          <p className="mt-0.5 line-clamp-2 min-h-[2.75em] font-bold leading-snug text-ink">{name}</p>
+          {/* 신고일은 상세에서 본다. 카드 폭에 넣으면 제조사가 잘린다 */}
+          <p className="mt-1 truncate text-xs text-ink-muted sm:text-sm">
+            {productMeta({ manufacturer: item.manufacturer, form: item.form })}
+          </p>
+          {(item.exportOnly || item.parseStatus === "NEEDS_REVIEW" || item.exceedsUpperLimit) && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {item.exportOnly && <ExportBadge />}
+              {/* DESIGN.md 7.3.1: 검수 대기 제품이거나 상한 2배를 넘는 오류 의심 값 */}
+              {(item.parseStatus === "NEEDS_REVIEW" || item.exceedsUpperLimit) && <ReviewBadge />}
+            </div>
+          )}
+          {showAmount && <CardAmount item={item} />}
+        </div>
+      </Link>
     </li>
+  );
+}
+
+// 함량과 기준을 붙여 둔다. 기준을 숨기면 1정 기준 값이 하루치처럼 읽혀서다(2026-11-23 정함).
+// 확인한 1일 기준만 배지로 띄우고, 대부분인 표시 기준량은 작은 글자로 둔다
+function CardAmount({ item }: { item: ProductSearchItem }) {
+  if (item.dailyAmount === null) {
+    // 1일 함량을 계산하지 못한 제품. 원문 값은 상세에서 보여준다
+    return <p className="mt-auto pt-2 text-sm text-ink-muted">함량 확인 필요</p>;
+  }
+  const daily = item.basisCheck === "DAILY" || item.basisCheck === "PER_SERVING";
+  return (
+    <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-2">
+      <b className="tabular-nums text-lg font-extrabold text-ink sm:text-xl">
+        {formatAmount(item.dailyAmount)}
+        <small className="ml-0.5 text-xs font-medium text-ink-muted">{item.dailyUnit}</small>
+      </b>
+      {daily ? <BasisBadge basisCheck={item.basisCheck} /> : <span className="text-xs text-ink-muted">표시 기준량</span>}
+    </div>
+  );
+}
+
+// 카드 안 "표시 기준량" 설명. 카드가 링크라 결과 위에 한 번만 둔다. 글줄 중간에서 열려도 좁은 화면 밖으로 나가지 않게 폭을 제한한다
+function BasisHelp() {
+  return (
+    <details className="relative inline-block">
+      <summary className="cursor-pointer list-none font-bold text-brand-700 underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden">
+        표시 기준량이란?
+      </summary>
+      <p className="absolute left-0 top-full z-10 mt-1 w-64 max-w-[calc(100vw-3rem)] rounded-tile border border-line bg-white p-3 text-xs text-ink-soft shadow-card">
+        제품 성분표에 적힌 기준량(예: 1정)당 함량이에요. 하루 섭취량과 같은지 확인하지 못했어요. 확인한 제품에는 ‘1일 기준’을 붙여요.
+      </p>
+    </details>
   );
 }
 
