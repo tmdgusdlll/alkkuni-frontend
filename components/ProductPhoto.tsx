@@ -2,8 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 
-// 외부 사진(쿠팡 등). 주소가 죽거나 막혀 못 불러오면 fallback(제형 아이콘)으로 바꾼다.
-// 쿠팡 CDN이 다른 사이트의 Referer를 막을 수 있어 Referer를 보내지 않는다. size가 없으면 감싼 칸을 채운다(검색 카드)
+// 외부 사진(쇼핑몰 CDN 등). 주소가 죽거나 막혀 못 불러오면 fallback(제형 아이콘)으로 바꾼다.
+// 쇼핑몰 CDN이 다른 사이트의 Referer를 막을 수 있어 Referer를 보내지 않는다. size가 없으면 감싼 칸을 채운다(검색 카드)
 export function ProductPhoto({ src, size, fallback }: { src: string; size?: number; fallback: ReactNode }) {
   const [failed, setFailed] = useState(false);
   if (failed) return fallback;
