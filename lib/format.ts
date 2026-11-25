@@ -40,7 +40,24 @@ export function productMeta(p: { manufacturer: string | null; form: string | nul
 // BrandName.nameKey와 같은 규칙(앞 괄호·공백·대소문자 무시)으로 떼고, 브랜드로 시작하지 않으면("ATOMY …") 이름을 그대로 둔다
 export function splitBrandName(brand: string | null, name: string): { brand: string | null; name: string } {
   if (!brand) return { brand: null, name };
-  const key = brand.replace(/\s+/gu, "").toUpperCase();
+  // 브랜드가 회사 정식명("광동제약")이어도 제품명은 줄임말("광동 관절팩트")이 많아, 전체가 안 맞으면 꼬리를 뗀 앞부분으로 맞춘다.
+  // 전체부터 보는 건 "일양약품아연"이 "약품아연"으로 남지 않게 하려는 것이다. 브랜드가 꼬리뿐이면("제약") 그대로 둔다
+  const full = brand.replace(/\s+/gu, "").toUpperCase();
+  const i = prefixEnd(name, full) ?? prefixEnd(name, full.replace(/(?<=.)(약품|제약|식품)$/u, ""));
+  if (i === null) return { brand, name };
+  // "일양약품 아연365"(브랜드 "일양약품", 사전 별칭 "일양"·"일양약품")처럼 회사명 꼬리도 브랜드 표기라 같이 뗀다
+  // ponytail: 로컬 브랜드 제품 5,429개 중 띄어쓰기 없이 붙은 315개를 보고 정한 꼬리(2026-11-23). 사전 별칭이 늘면 다시 본다
+  // 꼬리는 단어가 끝날 때만("일양 제약회사…"는 그대로), 닫는 괄호·쌍점보다 먼저 지운다("[일양약품] 아연365", "오직:프로바이오틱스")
+  const rest = name
+    .slice(i)
+    .replace(/^(약품|제약|식품)(?=[\s\])>】:]|$)/u, "")
+    .replace(/^\s*[\])>】:]?\s*/u, "");
+  // 이름이 브랜드뿐이면 뗄 게 없다
+  return { brand, name: rest || name };
+}
+
+// 제품명이 key로 시작하면(앞 괄호·공백·대소문자 무시) key가 끝난 위치, 아니면 null
+function prefixEnd(name: string, key: string): number | null {
   let i = name.match(/^\s*[[(<【]?\s*/u)?.[0].length ?? 0;
   let k = 0;
   while (i < name.length && k < key.length) {
@@ -50,14 +67,5 @@ export function splitBrandName(brand: string | null, name: string): { brand: str
       k++;
     } else break;
   }
-  if (k < key.length) return { brand, name };
-  // "일양약품 아연365"(브랜드 "일양", 사전 별칭 "일양약품")처럼 회사명 꼬리도 브랜드 표기라 같이 뗀다
-  // ponytail: 로컬 브랜드 제품 5,429개 중 띄어쓰기 없이 붙은 315개를 보고 정한 꼬리(2026-11-23). 사전 별칭이 늘면 다시 본다
-  // 꼬리는 단어가 끝날 때만("일양 제약회사…"는 그대로), 닫는 괄호보다 먼저 지운다("[일양약품] 아연365")
-  const rest = name
-    .slice(i)
-    .replace(/^(약품|제약)(?=[\s\])>】]|$)/u, "")
-    .replace(/^\s*[\])>】]?\s*/u, "");
-  // 이름이 브랜드뿐이면 뗄 게 없다
-  return { brand, name: rest || name };
+  return k < key.length ? null : i;
 }
