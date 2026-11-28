@@ -43,3 +43,6 @@ next-env.d.ts
 # IDE
 .idea/
 *.iml
+
+# Claude Code 로컬 설정·스킬
+.claude/

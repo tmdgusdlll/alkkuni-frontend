@@ -127,7 +127,7 @@ export type ProductDetailResponse = BrandFields & {
 };
 
 // SEARCH는 제품 페이지가 아니라 쇼핑몰 검색 결과로 간다
-export type PurchaseLink = { store: "COUPANG"; type: "DETAIL" | "SEARCH"; url: string };
+export type PurchaseLink = { store: "NAVER"; type: "DETAIL" | "SEARCH"; url: string };
 
 // GET /api/stats (stats/StatsController.kt). dataDate는 "이 날짜까지 반영"(I0030 커서 - 1일), 첫 적재 전이면 null
 export type StatsResponse = { productCount: number; ingredientCount: number; dataDate: string | null };

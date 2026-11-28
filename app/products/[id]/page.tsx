@@ -151,21 +151,21 @@ async function ProductContent({ params }: { params: PageProps<"/products/[id]">[
   );
 }
 
-// 쿠팡 파트너스가 요구하는 대가성 문구. 버튼 바로 아래에 둔다(DESIGN.md 7.5)
-const AFFILIATE_NOTICE = "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.";
+// 네이버 쇼핑 커넥트가 정한 대가성 문구 그대로. 버튼 바로 아래에 둔다(DESIGN.md 7.5)
+const AFFILIATE_NOTICE = "이 포스팅은 네이버 쇼핑 커넥트 활동의 일환으로, 판매 발생 시 수수료를 제공받습니다.";
 
 function PurchaseButton({ link }: { link: PurchaseLink }) {
   return (
     <div className="mt-3">
       {/* 제휴 링크는 rel="sponsored"(검색 엔진 안내). 새 탭이라 noopener.
-          noreferrer는 두지 않는다. 쿠팡이 등록 채널(kuromi.click)에서 온 방문인지 Referer로 볼 수 있어서다 */}
+          noreferrer는 두지 않는다. 제휴 프로그램이 어느 채널(kuromi.click)에서 온 방문인지 Referer로 볼 수 있어서다 */}
       <a
         href={link.url}
         target="_blank"
         rel="sponsored noopener"
         className="flex h-12 items-center justify-center rounded-full border border-brand-700 font-bold text-brand-700 hover:bg-brand-50"
       >
-        {link.type === "SEARCH" ? "쿠팡에서 찾아보기" : "쿠팡에서 보기"}
+        {link.type === "SEARCH" ? "네이버에서 찾아보기" : "네이버에서 보기"}
         <span aria-hidden="true">&nbsp;↗</span>
         <span className="sr-only">(새 탭)</span>
       </a>
