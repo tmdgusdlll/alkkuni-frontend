@@ -179,6 +179,8 @@ export type ProductExploreItem = BrandFields & {
   categories: CategoryRef[];
   // 고른 성분 순서. 카테고리만 골랐으면 빈 목록. 같은 성분 행이 여러 개면 values가 여러 개다(합치지 않음)
   amounts: { ingredientId: number; values: CompareAmount[] }[];
+  // 제품 사진. 없으면 null(대부분)이고 화면은 제형 아이콘
+  imageUrl: string | null;
 };
 
 export type ProductExploreResponse = {
@@ -199,6 +201,8 @@ export type CompareProduct = BrandFields & {
   form: string | null;
   basisCheck: BasisCheck | null;
   parseStatus: ParseStatus;
+  // 제품 사진. 없으면 null(대부분)이고 화면은 제형 아이콘
+  imageUrl: string | null;
 };
 
 export type CompareIngredient = {

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AmountCell, barMaxOf } from "@/components/AmountCell";
 import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
 import { Carousel } from "@/components/Carousel";
+import { FormIcon } from "@/components/FormIcon";
 import { NewsList } from "@/components/NewsList";
 import { SearchBar } from "@/components/SearchBar";
 import { formatDate, productMeta } from "@/lib/format";
@@ -155,6 +156,7 @@ async function TopProducts({ ing }: { ing: IngredientItem }) {
       {rows.map(({ item, values }, i) => (
         <li key={item.id} className="flex gap-3">
           <span className="w-4 shrink-0 pt-0.5 text-sm font-bold tabular-nums text-ink-muted">{i + 1}</span>
+          <FormIcon form={item.form} imageUrl={item.imageUrl} size={48} />
           <div className="min-w-0 flex-1">
             <BrandLabel brand={item.brand} name={item.name} />
             <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">

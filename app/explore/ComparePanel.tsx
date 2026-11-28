@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AmountCell, barValue } from "@/components/AmountCell";
 import { BasisBadge, BrandLabel, ExportBadge, ReviewBadge } from "@/components/badges";
+import { FormIcon } from "@/components/FormIcon";
 import { api } from "@/lib/api";
 import { productMeta } from "@/lib/format";
 import type { CompareIngredient, CompareProduct, ProductCompareResponse, ProductDetailResponse } from "@/types/api";
@@ -152,6 +153,9 @@ function ProductHead({ p, index, remove }: { p: CompareProduct; index: number; r
         <Link href={remove} scroll={false} aria-label={`${p.name} 빼기`} className="text-sm text-ink-muted hover:text-ink">
           빼기 <span aria-hidden="true">✕</span>
         </Link>
+      </div>
+      <div className="mt-3">
+        <FormIcon form={p.form} imageUrl={p.imageUrl} size={64} />
       </div>
       <div className="mt-2">
         <BrandLabel brand={p.brand} name={p.name} />
