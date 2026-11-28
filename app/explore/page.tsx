@@ -4,6 +4,7 @@ import { cacheLife } from "next/cache";
 import { Suspense } from "react";
 import { AmountCell, barMaxOf } from "@/components/AmountCell";
 import { BasisBadge, BrandLabel, ExportBadge, OtherUnitBadge, ReviewBadge } from "@/components/badges";
+import { FormIcon } from "@/components/FormIcon";
 import { Pagination } from "@/components/Pagination";
 import { ComparePanel } from "./ComparePanel";
 import { api } from "@/lib/api";
@@ -572,6 +573,10 @@ function ProductTable({ params, data }: { params: Params; data: ProductExploreRe
                   <span className="w-6 shrink-0 pt-0.5 text-right text-sm font-bold tabular-nums text-ink-muted">
                     {params.page * PAGE_SIZE + i + 1}
                   </span>
+                  {/* 모바일은 고정 첫 칸이 화면 대부분을 차지해 사진까지 넣으면 함량 열이 가려진다. sm 이상에서만 */}
+                  <span className="hidden sm:block">
+                    <FormIcon form={item.form} imageUrl={item.imageUrl} size={48} />
+                  </span>
                   <div className="min-w-0">
                     <BrandLabel brand={item.brand} name={item.name} />
                     <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
@@ -686,7 +691,8 @@ async function ProductSearchResults({ params }: { params: Params }) {
         <ul>
           {items.map((item) => (
             <li key={item.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-line-soft py-3 last:border-b-0">
-              <div className="min-w-0 flex-1 basis-56">
+              <FormIcon form={item.form} imageUrl={item.imageUrl} size={40} />
+              <div className="min-w-0 flex-1 basis-48">
                 <BrandLabel brand={item.brand} name={item.name} />
                 <Link href={`/products/${item.id}`} className="font-bold break-keep text-ink hover:text-brand-700 hover:underline">
                   {item.name}
