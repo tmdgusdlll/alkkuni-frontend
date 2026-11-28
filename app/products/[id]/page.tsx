@@ -165,7 +165,7 @@ function PurchaseButton({ link }: { link: PurchaseLink }) {
         rel="sponsored noopener"
         className="flex h-12 items-center justify-center rounded-full border border-brand-700 font-bold text-brand-700 hover:bg-brand-50"
       >
-        {link.type === "SEARCH" ? "네이버에서 찾아보기" : "네이버에서 보기"}
+        {link.type === "SEARCH" ? "네이버 쇼핑에서 찾아보기" : "네이버 쇼핑에서 보기"}
         <span aria-hidden="true">&nbsp;↗</span>
         <span className="sr-only">(새 탭)</span>
       </a>
