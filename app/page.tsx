@@ -137,8 +137,9 @@ async function PopularCards() {
 async function TopProducts({ ing }: { ing: IngredientItem }) {
   let res;
   try {
-    // /explore에서 이 성분만 고른 첫 페이지와 같은 쿼리라 "더 보기"를 누르면 서버 캐시를 그대로 쓴다
-    res = await getExplore(`ingredient=${ing.id}&size=10`);
+    // 판매 추정 제품 중 1일 함량 상위(백엔드 PLANNING.md "노출 순서·판매 필터", 2026-11-22). 살 수 없는 제품만 보이면 비교가 쓸모없다.
+    // "더 보기"(/explore)는 전체 목록이라 쿼리가 달라 서버 캐시를 같이 쓰지 않는다
+    res = await getExplore(`ingredient=${ing.id}&size=${TOP}&onSale=true`);
   } catch (e) {
     console.error(`메인 인기 성분: ${ing.name} 목록을 불러오지 못했습니다`, e);
     return <p className="mt-4 flex-1 text-sm text-ink-muted">불러오지 못했어요.</p>;
